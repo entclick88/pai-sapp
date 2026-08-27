@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>บทเรียนภาษี - มัธยมปลาย</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        nav {
+            background: #f8f9fa;
+            padding: 20px;
+            border-bottom: 2px solid #667eea;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        nav button {
+            padding: 10px 20px;
+            border: none;
+            background: white;
+            border: 2px solid #667eea;
+            color: #667eea;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 1em;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        nav button:hover,
+        nav button.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            color: #764ba2;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        p, li {
+            line-height: 1.8;
+            margin-bottom: 15px;
+            font-size: 1.05em;
+        }
+
+        ul, ol {
+            margin-left: 30px;
+            margin-bottom: 20px;
+        }
+
+        .box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .important {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .calculator {
+            background: #f0f4ff;
+            padding: 30px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .calculator h3 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #667eea;
+            border-radius: 5px;
+            font-size: 1em;
+            font-family: inherit;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #764ba2;
+            box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.05em;
+            font-weight: 600;
+            transition: transform 0.2s;
+            width: 100%;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        .result {
+            background: white;
+            border: 2px solid #667eea;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .result.show {
+            display: block;
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 1.1em;
+        }
+
+        .result-row:last-child {
+            border-bottom: none;
+            font-weight: 700;
+            font-size: 1.2em;
+            color: #667eea;
+            padding-top: 15px;
+            border-top: 2px solid #667eea;
+        }
+
+        .timeline {
+            position: relative;
+            padding: 20px 0;
+        }
+
+        .timeline-item {
+            display: flex;
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        .timeline-dot {
+            width: 20px;
+            height: 20px;
+            background: #667eea;
+            border-radius: 50%;
+            margin-top: 5px;
+            margin-right: 30px;
+            flex-shrink: 0;
+        }
+
+        .timeline-content {
+            flex: 1;
+        }
+
+        .timeline-content h4 {
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .timeline-item:not(:last-child)::before {
+            content: '';
+            position: absolute;
+            left: 9px;
+            top: 30px;
+            width: 2px;
+            height: 30px;
+            background: #667eea;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 15px;
+            text-align: left;
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .example-card {
+            background: white;
+            border: 2px solid #667eea;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+
+        .example-card strong {
+            color: #667eea;
+        }
+
+        footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            border-top: 2px solid #667eea;
+            color: #666;
+        }
+
+        .time-info {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            color: #004085;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        @media (max-width: 768px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+
+            nav {
+                gap: 5px;
+            }
+
+            nav button {
+                padding: 8px 15px;
+                font-size: 0.9em;
+            }
+
+            header h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📚 บทเรียนเกี่ยวกับภาษี</h1>
+            <p>ชั้นมัธยมปลาย | ระยะเวลา: 2 ชั่วโมง</p>
+        </header>
+
+        <nav>
+            <button class="nav-btn active" onclick="showSection('intro')">บทนำ</button>
+            <button class="nav-btn" onclick="showSection('definition')">ความหมาย</button>
+            <button class="nav-btn" onclick="showSection('importance')">ความสำคัญ</button>
+            <button class="nav-btn" onclick="showSection('types')">ประเภทภาษี</button>
+            <button class="nav-btn" onclick="showSection('tax-payment')">การเสียภาษี</button>
+            <button class="nav-btn" onclick="showSection('compliance')">ความถูกต้อง</button>
+            <button class="nav-btn" onclick="showSection('calculator')">คำนวณภาษี</button>
+        </nav>
+
+        <div class="content">
+            <!-- บทนำ -->
+            <section id="intro" class="section active">
+                <h2>🎯 บทนำ</h2>
+                <div class="time-info">
+                    <strong>⏱️ เวลาเรียนรู้:</strong> 30 นาที
+                </div>
+
+                <p>ภาษีเป็นส่วนหนึ่งสำคัญของระบบเศรษฐกิจและสังคมของประเทศ ในบทเรียนนี้ เราจะเรียนรู้เกี่ยวกับ:</p>
+                <ul>
+                    <li>ความหมายและประเภทของภาษี</li>
+                    <li>ความสำคัญของการเสียภาษี</li>
+                    <li>กระบวนการทำให้ถูกต้องเกี่ยวกับภาษี</li>
+                    <li>การคำนวณภาษีอย่างง่าย</li>
+                </ul>
+
+                <div class="box">
+                    <strong>💡 สิ่งที่เราจะได้เรียนรู้:</strong>
+                    <p style="margin-top: 10px;">หลังจบบทเรียนนี้ นักเรียนจะสามารถ:</p>
+                    <ul style="margin-top: 10px;">
+                        <li>อธิบายความหมายและประเภทของภาษี</li>
+                        <li>เข้าใจความสำคัญของการเสียภาษีต่อประเทศ</li>
+                        <li>คำนวณภาษีทั่วไป เช่น ภาษีมูลค่าเพิ่ม</li>
+                        <li>ตระหนักถึงความสำคัญของการยื่นแบบปกติและเสียภาษีอย่างถูกต้อง</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- ความหมาย -->
+            <section id="definition" class="section">
+                <h2>📖 ความหมายของภาษี</h2>
+                <div class="time-info">
+                    <strong>⏱️ เวลาเรียนรู้:</strong> 25 นาที
+                </div>
+
+                <h3>นิยามภาษี</h3>
+                <div class="box">
+                    <p><strong>ภาษี</strong> คือการเก็บเงินจากประชาชน บริษัท และหน่วยงานอื่นๆ โดยกำลังของรัฐ เพื่อใช้ในการบริหารราชการและพัฒนาประเทศ ซึ่งไม่มีการให้ตอบแทนโดยตรง</p>
+                </div>
+
+                <h3>ลักษณะสำคัญของภาษี</h3>
+                <ul>
+                    <li><strong>บังคับ:</strong> ประชาชนต้องเสียโดยไม่มีการเลือก</li>
+                    <li><strong>ไม่มีตอบแทนโดยตรง:</strong> ไม่ได้รับสินค้าหรือบริการเทียบเท่า</li>
+                    <li><strong>โดยกำลังของรัฐ:</strong> มีกฎหมายบังคับใช้</li>
+                    <li><strong>เพื่อประโยชน์สาธารณะ:</strong> ใช้ในการพัฒนาประเทศ</li>
+                </ul>
+
+                <h3>ข้อแตกต่างระหว่างภาษีและค่าธรรมเนียม</h3>
+                <table>
+                    <tr>
+                        <th>ลักษณะ</th>
+                        <th>ภาษี</th>
+                        <th>ค่าธรรมเนียม</th>
+                    </tr>
+                    <tr>
+                        <td>บังคับ</td>
+                        <td>มีการบังคับ</td>
+                        <td>ไม่มีการบังคับ</td>
+                    </tr>
+                    <tr>
+                        <td>ตอบแทน</td>
+                        <td>ไม่มีตอบแทนโดยตรง</td>
+                        <td>มีตอบแทนโดยตรง</td>
+                    </tr>
+                    <tr>
+                        <td>วัตถุประสงค์</td>
+                        <td>รายได้ของรัฐ</td>
+                        <td>ค่าใช้งาน</td>
+                    </tr>
+                </table>
+
+                <div class="example-card">
+                    <strong>📌 ตัวอย่าง:</strong>
+                    <p style="margin-top: 10px;">- เมื่อคุณซื้อสินค้า คุณต้องเสียภาษีมูลค่าเพิ่ม (VAT) 7%</p>
+                    <p>- คุณได้อากรรถยนต์จากรัฐ แต่ไม่มีสินค้าหรือบริการใดที่ส่งคืนให้โดยตรง</p>
+                </div>
+            </section>
+
+            <!-- ความสำคัญ -->
+            <section id="importance" class="section">
+                <h2>⭐ ความสำคัญของภาษี</h2>
+                <div class="time-info">
+                    <strong>⏱️ เวลาเรียนรู้:</strong> 20 นาที
+                </div>
+
+                <h3>ความสำคัญต่อประเทศ</h3>
+                <div class="grid-2">
+                    <div class="box">
+                        <h4>🏗️ การพัฒนาโครงสร้างพื้นฐาน</h4>
+                        <p>สร้างถนน สะพาน โรงเรียน โรงพยาบาล ฯลฯ</p>
+                    </div>
+                    <div class="box">
+                        <h4>👨‍💼 บริหารราชการ</h4>
+                        <p>เงินเดือนข้าราชการ การปฏิบัติงานของรัฐ</p>
+                    </div>
+                    <div class="box">
+                        <h4>📚 ศึกษาและสาธารณสุข</h4>
+                        <p>จัดการศึกษา แพทย์ ส่วนสาธารณสุข</p>
+                    </div>
+                    <div class="box">
+                        <h4>🛡️ ความมั่นคง</h4>
+                        <p>กองทัพ ตำรวจ รักษาความปลอดภัย</p>
+                    </div>
+                </div>
+
+                <h3>ประโยชน์ของภาษีต่อประชาชน</h3>
+                <div class="important">
+                    <ul>
+                        <li>🛣️ ใช้บริการสาธารณะ เช่น ถนน ไฟฟ้า น้ำ</li>
+                        <li>🏥 รับบริการแพทย์และสาธารณสุข</li>
+                        <li>📖 เด็กได้รับการศึกษา</li>
+                        <li>🌍 พัฒนาเศรษฐกิจประเทศ</li>
+                        <li>⚖️ มีความเป็นธรรมในสังคม</li>
+                    </ul>
+                </div>
+
+                <div class="example-card">
+                    <strong>📌 ตัวอย่างในชีวิตประจำวัน:</strong>
+                    <p style="margin-top: 10px;">เมื่อคุณใช้รถไฟฟ้า BTS หรือ MRT ค่าโดยสารนั้นมีรายได้จากภาษี คุณเรียนหนังสือในโรงเรียนรัฐที่ได้รับงบประมาณจากภาษี ทั้งสองสิ่งนี้เป็นผลมาจากการเสียภาษีของประชาชน</p>
+                </div>
+            </section>
+
+            <!-- ประเภทภาษี -->
+            <section id="types" class="section">
+                <h2>🏷️ ประเภทของภาษี</h2>
+                <div class="time-info">
+                    <strong>⏱️ เวลาเรียนรู้:</strong> 20 นาที
+                </div>
+
+                <h3>การแบ่งประเภทตามลักษณะของรายได้</h3>
+
+                <div class="box">
+                    <h4>1️⃣ ภาษีอากร (Indirect Tax)</h4>
+                    <p><strong>ความหมาย:</strong> ภาษีที่เก็บจากการซื้อขาย การนำเข้า-ส่งออก สินค้า</p>
+                    <ul>
+                        <li><strong>ภาษีมูลค่าเพิ่ม (VAT):</strong> ปัจจุบัน 7% ของราคาสินค้า</li>
+                        <li><strong>ภาษีสรรพสามิต:</strong> เก็บจากสินค้าอย่างเช่น บุหรี่ เหล้า</li>
+                        <li><strong>ภาษีศุลกากร:</strong> เก็บจากสินค้านำเข้า</li>
+                    </ul>
+                </div>
+
+                <div class="box">
+                    <h4>2️⃣ ภาษีจาก (Direct Tax)</h4>
+                    <p><strong>ความหมาย:</strong> ภาษีที่เก็บจากผู้มีรายได้และทรัพย์สิน</p>
+                    <ul>
+                        <li><strong>ภาษีเงินได้:</strong> เก็บจากเงินเดือน ค่าจ้าง บุคคล บริษัท</li>
+                        <li><strong>ภาษีที่ดี:</strong> เก็บจากการเป็นเจ้าของที่ดินและสถานที่</li>
+                        <li><strong>ภาษีมรดก:</strong> เก็บจากการรับมรดก</li>
+                    </ul>
+                </div>
+
+                <h3>ตารางเปรียบเทียบภาษีโดยตรงและโดยอ้อม</h3>
+                <table>
+                    <tr>
+                        <th>ลักษณะ</th>
+                        <th>ภาษีโดยตรง</th>
+                        <th>ภาษีโดยอ้อม</th>
+                    </tr>
+                    <tr>
+                        <td>ความหมาย</td>
+                        <td>เก็บจากรายได้/ทรัพย์สิน</td>
+                        <td>เก็บจากการซื้อขาย</td>
+                    </tr>
+                    <tr>
+                        <td>ผู้เสียภาษี</td>
+                        <td>ผู้มีรายได้/ทรัพย์สิน</td>
+                        <td>ผู้บริโภค</td>
+                    </tr>
+                    <tr>
+                        <td>ตัวอย่าง</td>
+                        <td>ภาษีเงินได้</td>
+                        <td>VAT สรรพสามิต</td>
+                    </tr>
+                </table>
+            </section>
+
+            <!-- การเสียภาษี -->
+            <section id="tax-payment" class="section">
+                <h2>💳 การเสียภาษี</h2>
+                <div class="time-info">
+                    <strong>⏱️ เวลาเรียนรู้:</strong> 25 นาที
+                </div>
+
+                <h3>กระบวนการเสียภาษีเงินได้</h3>
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-content">
+                            <h4>ขั้นที่ 1: การคำนวณรายได้</h4>
+                            <p>บ้านคิดรายได้สุทธิของปีภาษี (ตั้งแต่ 1 ม.ค. ถึง 31 ธ.ค.)</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-content">
+                            <h4>ขั้นที่ 2: การจัดประเภทรายได้</h4>
+                            <p>แบ่งรายได้เป็นประเภทต่างๆ เช่น เงินเดือน ดอกเบี้ย ค่าเช่า</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-content">
+                            <h4>ขั้นที่ 3: การหักค่าใช้สอย</h4>
+                            <p>หักค่าใช้สอย ค่าใช้จ่าย และการลงทุน</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-content">
+                            <h4>ขั้นที่ 4: การคำนวณภาษี</h4>
+                            <p>คำนวณภาษีตามอัตราที่กฎหมายกำหนด</p>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-content">
+                            <h4>ขั้นที่ 5: การยื่นแบบปกติ</h4>
+                            <p>ยื่นแบบปกติต่อสำนักสรรพากร ภายในเดือน เมษายน ของปีถัดไป</p>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>อัตราภาษีเงินได้ปัจจุบัน (ประเทศไทย)</h3>
+                <table>
+                    <tr>
+                        <th>รายได้สูงสุด (บาท)</th>
+                        <th>อัตราภาษี</th>
+                    </tr>
+                    <tr>
+                        <td>0 - 150,000</td>
+                        <td>ปลอดภาษี</td>
+                    </tr>
+                    <tr>
+                        <td>150,001 - 300,000</td>
+                        <td>5%</td>
+                    </tr>
+                    <tr>
+                        <td>300,001 - 500,000</td>
+                        <td>10%</td>
+                    </tr>
+                    <tr>
+                        <td>500,001 - 750,000</td>
+                        <td>15%</td>
+                    </tr>
+                    <tr>
+                        <td>750,001 - 1,000,000</td>
+                        <td>20%</td>
+                    </tr>
+                    <tr>
+                        <td>1,000,001 - 2,000,000</td>
+                        <td>25%</td>
+                    </tr>
+                    <tr>
+                        <td>2,000,001 - 5,000,000</td>
+                        <td>30%</td>
+                    </tr>
+                    <tr>
+                        <td>มากกว่า 5,000,000</td>
+                        <td>35%</td>
+                    </tr>
+                </table>
+
+                <div class="important">
+                    <strong>⚠️ หมายเหตุ:</strong>
+                    <p style="margin-top: 10px;">- อัตราภาษีอาจมีการเปลี่ยนแปลง ควรตรวจสอบกับสำนักสรรพากรเสมอ</p>
+                    <p>- มีการลดหย่อนภาษีสำหรับการเบี้ยประกันชีวิต การศึกษา บุตรที่อุปการะ ฯลฯ</p>
+                </div>
+            </section>
+
+            <!-- ความถูกต้องเกี่ยวกับภาษี -->
+            <section id="compliance" class="section">
+                <h2>✅ ความถูกต้องเกี่ยวกับภาษี</h2>
+                <div class="time-info">
+                    <strong>⏱️ เวลาเรียนรู้:</strong> 25 นาที
+                </div>
+
+                <h3>หลักการปฏิบัติให้ถูกต้องเกี่ยวกับภาษี</h3>
+
+                <div class="box">
+                    <h4>1. 📝 ถูกต้องตามกฎหมาย</h4>
+                    <ul>
+                        <li>เสียภาษีตามจำนวนที่กฎหมายกำหนด</li>
+                        <li>ไม่หลีกเลี่ยงหรือหักเงินอย่างผิดกฎหมาย</li>
+                        <li>เก็บรักษาเอกสารให้ถูกต้อง</li>
+                    </ul>
+                </div>
+
+                <div class="box">
+                    <h4>2. 📋 จดทะเบียนเลขประจำตัวประชาชน</h4>
+                    <ul>
+                        <li>ต้องมีเลขประจำตัวประชาชนและเลขประจำตัวผู้เสียภาษี</li>
+                        <li>จำเป็นสำหรับการยื่นแบบปกติ</li>
+                    </ul>
+                </div>
+
+                <div class="box">
+                    <h4>3. 📚 การเก็บรักษาเอกสารหลักฐาน</h4>
+                    <ul>
+                        <li>ใบเสร็จรับเงิน ใบสั่งซื้อ ใบแจ้งหนี้</li>
+                        <li>เก็บเอกสารอย่างน้อย 5 ปี</li>
+                        <li>เพื่อยืนยันในกรณีที่สรรพากรตรวจสอบ</li>
+                    </ul>
+                </div>
+
+                <div class="box">
+                    <h4>4. 📅 ยื่นแบบปกติอย่างทันเวลา</h4>
+                    <ul>
+                        <li>บุคคลธรรมชาติ: ยื่นแบบ ภ.ง.ด. 90 ภายใน 31 มี.ค. ของปีถัดไป</li>
+                        <li>นิติบุคคล: ยื่นแบบภายใน 150 วันนับแต่สิ้นสุดรอบระยะเวลาบัญชี</li>
+                    </ul>
+                </div>
+
+                <div class="box">
+                    <h4>5. 💰 การเสียภาษี</h4>
+                    <ul>
+                        <li>เสียภาษีตามแบบปกติที่กำหนด</li>
+                        <li>สามารถเสียเป็นเงินสดหรือวิธีการอื่นตามที่กำหนด</li>
+                    </ul>
+                </div>
+
+                <h3>ผลของการไม่เสียภาษีอย่างถูกต้อง</h3>
+                <div class="important">
+                    <h4>⚠️ การลงโทษ:</h4>
+                    <ul>
+                        <li>🚫 ปรับเพิ่มเติม 1 ถึง 2 เท่าของจำนวนภาษี</li>
+                        <li>🔒 อาจถูกดำเนินการทางกฎหมายหากจำนวนมาก</li>
+                        <li>❌ ชื่อเสียกับสถาบันการเงิน ผู้ให้เช่า</li>
+                        <li>📊 ยากต่อการยื่นสินเชื่อ การขอวีซ่า</li>
+                    </ul>
+                </div>
+
+                <h3>วิธีการตรวจสอบการเสียภาษี</h3>
+                <ul>
+                    <li>✅ เข้าเว็บไซต์ของสำนักสรรพากร www.rd.go.th</li>
+                    <li>✅ โทรศัพท์ไปยังหน่วยสรรพากรท้องถิ่น</li>
+                    <li>✅ มาติดต่อสำนักสรรพากรโดยตรง</li>
+                    <li>✅ ปรึกษาผู้เชี่ยวชาญด้านภาษี บัญชี</li>
+                </ul>
+            </section>
+
+            <!-- เครื่องคิดเลขภาษี -->
+            <section id="calculator" class="section">
+                <h2>🧮 เครื่องคำนวณภาษี</h2>
+                <div class="time-info">
+                    <strong>⏱️ เวลาเรียนรู้:</strong> 20 นาที
+                </div>
+
+                <h3>เครื่องคำนวณภาษีเงินได้บุคคลธรรมชาติ</h3>
+                <div class="calculator">
+                    <div class="input-group">
+                        <label for="income">รายได้รวมต่อปี (บาท):</label>
+                        <input type="number" id="income" placeholder="เช่น 500000" min="0" step="1000">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="expenses">ค่าใช้สอย/ค่าลดหย่อน (บาท):</label>
+                        <input type="number" id="expenses" placeholder="เช่น 50000" min="0" step="1000">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="deductions">การลดหย่อนพิเศษ (บาท):</label>
+                        <input type="number" id="deductions" placeholder="เบี้ยประกัน บุตร ฯลฯ" min="0" step="1000">
+                    </div>
+
+                    <button onclick="calculateIncomeTax()">💰 คำนวณภาษี</button>
+
+                    <div id="incomeResult" class="result">
+                        <div class="result-row">
+                            <span>รายได้รวม:</span>
+                            <span id="totalIncome">0.00 บาท</span>
+                        </div>
+                        <div class="result-row">
+                            <span>ลบ: ค่าใช้สอย/ลดหย่อน:</span>
+                            <span id="totalDeductions">0.00 บาท</span>
+                        </div>
+                        <div class="result-row">
+                            <span>รายได้สุทธิ:</span>
+                            <span id="netIncome">0.00 บาท</span>
+                        </div>
+                        <div class="result-row">
+                            <span>ภาษีที่ต้องเสีย:</span>
+                            <span id="taxAmount">0.00 บาท</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>เครื่องคำนวณ VAT (ภาษีมูลค่าเพิ่ม)</h3>
+                <div class="calculator">
+                    <div class="input-group">
+                        <label for="basePrice">ราคาก่อน VAT (บาท):</label>
+                        <input type="number" id="basePrice" placeholder="เช่น 1000" min="0" step="100">
+                    </div>
+
+                    <div class="input-group">
+                        <label for="vatRate">อัตรา VAT:</label>
+                        <select id="vatRate">
+                            <option value="7">7% (ปกติ)</option>
+                            <option value="10">10% (อื่นๆ)</option>
+                        </select>
+                    </div>
+
+                    <button onclick="calculateVAT()">🛍️ คำนวณ VAT</button>
+
+                    <div id="vatResult" class="result">
+                        <div class="result-row">
+                            <span>ราคาก่อน VAT:</span>
+                            <span id="vatBase">0.00 บาท</span>
+                        </div>
+                        <div class="result-row">
+                            <span>VAT:</span>
+                            <span id="vatAmount">0.00 บาท</span>
+                        </div>
+                        <div class="result-row">
+                            <span>ราคารวม VAT:</span>
+                            <span id="vatTotal">0.00 บาท</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>ตัวอย่างคำนวณ</h3>
+                <div class="example-card">
+                    <strong>📌 ตัวอย่างที่ 1: ภาษีเงินได้</strong>
+                    <p style="margin-top: 10px;">
+                        นาย ก มีรายได้ต่อปี 600,000 บาท<br>
+                        ค่าใช้สอยและการลดหย่อน 100,000 บาท<br>
+                        รายได้สุทธิ = 600,000 - 100,000 = 500,000 บาท
+                    </p>
+                    <p>
+                        คำนวณภาษี:<br>
+                        0 - 150,000 = 0 บาท<br>
+                        150,001 - 300,000 = 150,000 × 5% = 7,500 บาท<br>
+                        300,001 - 500,000 = 200,000 × 10% = 20,000 บาท<br>
+                        <strong>รวมภาษี = 0 + 7,500 + 20,000 = 27,500 บาท</strong>
+                    </p>
+                </div>
+
+                <div class="example-card">
+                    <strong>📌 ตัวอย่างที่ 2: VAT</strong>
+                    <p style="margin-top: 10px;">
+                        ซื้อหนังสือราคา 1,000 บาท (ปลอดภาษี)<br>
+                        ซื้อเสื้อผ้าราคา 2,000 บาท<br>
+                        VAT 7% = 2,000 × 7% = 140 บาท<br>
+                        <strong>ราคารวม = 2,000 + 140 = 2,140 บาท</strong>
+                    </p>
+                </div>
+            </section>
+        </div>
+
+        <footer>
+            <p>📚 บทเรียนภาษีสำหรับนักเรียนมัธยมปลาย</p>
+            <p>💡 แหล่งข้อมูล: สำนักสรรพากรกรมสรรพากร | ©️ 2024</p>
+        </footer>
+    </div>
+
+    <script>
+        function showSection(sectionId) {
+            const sections = document.querySelectorAll('.section');
+            sections.forEach(section => section.classList.remove('active'));
+
+            document.getElementById(sectionId).classList.add('active');
+
+            const navButtons = document.querySelectorAll('.nav-btn');
+            navButtons.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            window.scrollTo(0, 0);
+        }
+
+        function calculateIncomeTax() {
+            const income = parseFloat(document.getElementById('income').value) || 0;
+            const expenses = parseFloat(document.getElementById('expenses').value) || 0;
+            const deductions = parseFloat(document.getElementById('deductions').value) || 0;
+
+            const netIncome = income - expenses - deductions;
+            let tax = 0;
+
+            if (netIncome > 5000000) {
+                tax = 150000 + 750000 + 300000 + 375000 + 500000 + 750000 + (netIncome - 5000000) * 0.35;
+            } else if (netIncome > 2000000) {
+                tax = 150000 + 750000 + 300000 + 375000 + 500000 + (netIncome - 2000000) * 0.30;
+            } else if (netIncome > 1000000) {
+                tax = 150000 + 750000 + 300000 + 375000 + (netIncome - 1000000) * 0.25;
+            } else if (netIncome > 750000) {
+                tax = 150000 + 750000 + 300000 + (netIncome - 750000) * 0.20;
+            } else if (netIncome > 500000) {
+                tax = 150000 + 750000 + (netIncome - 500000) * 0.15;
+            } else if (netIncome > 300000) {
+                tax = 150000 + (netIncome - 300000) * 0.10;
+            } else if (netIncome > 150000) {
+                tax = (netIncome - 150000) * 0.05;
+            }
+
+            document.getElementById('totalIncome').textContent = income.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' บาท';
+            document.getElementById('totalDeductions').textContent = (expenses + deductions).toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' บาท';
+            document.getElementById('netIncome').textContent = netIncome.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' บาท';
+            document.getElementById('taxAmount').textContent = tax.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' บาท';
+
+            document.getElementById('incomeResult').classList.add('show');
+        }
+
+        function calculateVAT() {
+            const basePrice = parseFloat(document.getElementById('basePrice').value) || 0;
+            const vatRate = parseFloat(document.getElementById('vatRate').value) || 7;
+
+            const vat = basePrice * vatRate / 100;
+            const total = basePrice + vat;
+
+            document.getElementById('vatBase').textContent = basePrice.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' บาท';
+            document.getElementById('vatAmount').textContent = vat.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' บาท';
+            document.getElementById('vatTotal').textContent = total.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' บาท';
+
+            document.getElementById('vatResult').classList.add('show');
+        }
+    </script>
+</body>
+</html>
