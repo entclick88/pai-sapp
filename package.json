@@ -1,0 +1,27 @@
+{
+  "name": "auto-content-generator",
+  "version": "1.0.0",
+  "description": "Automatic content generator with Gmail integration",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "dotenv": "^16.3.1",
+    "sqlite3": "^5.1.6",
+    "node-cron": "^3.0.2",
+    "nodemailer": "^6.9.5",
+    "@anthropic-ai/sdk": "^0.9.0",
+    "cors": "^2.8.5",
+    "body-parser": "^1.20.2",
+    "axios": "^1.5.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

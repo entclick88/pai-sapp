@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Content Generator - ระบบสร้างเนื้อหาอัตโนมัติ</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+
+        .features {
+            text-align: left;
+            margin: 30px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+
+        .feature-item {
+            margin: 15px 0;
+            padding-left: 30px;
+            position: relative;
+            color: #555;
+            line-height: 1.6;
+        }
+
+        .feature-item:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .login-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 5px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 20px;
+        }
+
+        .login-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .google-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            color: #1a1a1a;
+            text-align: left;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📝 Auto Content Generator</h1>
+        <p class="subtitle">ระบบสร้างเนื้อหาอัตโนมัติโดยใช้ AI</p>
+
+        <div class="features">
+            <div class="feature-item">เข้าสู่ระบบด้วย Gmail เพียงครั้งเดียว</div>
+            <div class="feature-item">กรอกข้อมูล Template สำหรับสร้างเนื้อหา</div>
+            <div class="feature-item">ระบบจะสร้างเนื้อหาอัตโนมัติทุกวันเวลา 9:00 น</div>
+            <div class="feature-item">ส่งผลลัพธ์ไปยังอีเมลของคุณโดยอัตโนมัติ</div>
+            <div class="feature-item">ใช้ Claude AI สำหรับการสร้างเนื้อหา</div>
+        </div>
+
+        <div class="info-box">
+            <strong>ℹ️ วิธีการใช้:</strong><br>
+            1. คลิก "เข้าสู่ระบบด้วย Gmail"<br>
+            2. อนุมัติการเข้าถึง (ครั้งแรกเท่านั้น)<br>
+            3. สร้าง Template สำหรับสร้างเนื้อหา<br>
+            4. ตั้งค่าอีเมลที่จะรับผลลัพธ์<br>
+            5. เสร็จ! ระบบจะทำงานอัตโนมัติทุกวัน
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>กำลังเชื่อมต่อ...</p>
+        </div>
+
+        <a href="/auth/google" class="login-button google-button" id="loginBtn">
+            <svg width="20" height="20" viewBox="0 0 48 48">
+                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l8.02 6.23c1.91-5.22 7.01-9.45 13.42-9.45z"></path>
+                <path fill="#4285F4" d="M23.75 27.5c-3.72 0-6.96-2.35-8.1-5.7l-8.02 6.23C6.51 42.62 14.62 48 24 48c6.47 0 11.9-2.38 15.5-6.55l-7.73-6c-2.06 1.42-4.96 2.25-7.77 2.25z"></path>
+                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.5-6.55l-7.73-6c-2.05 1.42-4.96 2.25-7.77 2.25-6.41 0-11.51-4.23-13.42-9.45l-8.02 6.23C6.51 42.62 14.62 48 24 48z"></path>
+                <path fill="none" d="M0 0h48v48H0z"></path>
+            </svg>
+            เข้าสู่ระบบด้วย Gmail
+        </a>
+    </div>
+
+    <script>
+        // Check if already authenticated
+        async function checkAuth() {
+            try {
+                const response = await fetch('/auth/status');
+                const data = await response.json();
+
+                if (data.authenticated) {
+                    window.location.href = '/dashboard';
+                }
+            } catch (error) {
+                console.error('Auth check error:', error);
+            }
+        }
+
+        // Check auth on page load
+        checkAuth();
+    </script>
+</body>
+</html>
