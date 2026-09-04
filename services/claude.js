@@ -26,7 +26,7 @@ Please create engaging and informative content about this topic. Make it interes
         'HTTP-Referer': 'http://localhost:3000'
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'openrouter/auto',
         max_tokens: Math.min(template.wordCount * 2, 4000),
         system: systemPrompt,
         messages: [
@@ -82,7 +82,7 @@ async function generateTitle(topic) {
         'HTTP-Referer': 'http://localhost:3000'
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'openrouter/auto',
         max_tokens: 100,
         messages: [
           {
