@@ -95,16 +95,25 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   }));
 }
 
+// Always set up serialization (even if no strategy)
 passport.serializeUser((user, done) => {
-  done(null, user.id);
+  if (user && user.id) {
+    done(null, user.id);
+  } else {
+    done(null, null);
+  }
 });
 
 passport.deserializeUser(async (id, done) => {
+  if (!id) {
+    done(null, null);
+    return;
+  }
   try {
     const user = await dbAsync.get('SELECT * FROM users WHERE id = ?', [id]);
     done(null, user);
   } catch (error) {
-    done(error);
+    done(null, null);
   }
 });
 
