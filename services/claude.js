@@ -48,10 +48,13 @@ Please create engaging and informative content about this topic. Make it interes
       };
     }
 
-    if (data.content && data.content[0] && data.content[0].type === 'text') {
+    // Find the text content (filter out thinking blocks)
+    const textContent = data.content?.find(block => block.type === 'text');
+
+    if (textContent && textContent.text) {
       return {
         success: true,
-        content: data.content[0].text,
+        content: textContent.text,
         usage: {
           input_tokens: data.usage?.prompt_tokens || 0,
           output_tokens: data.usage?.completion_tokens || 0
