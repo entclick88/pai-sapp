@@ -41,12 +41,13 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Passport configuration
-passport.use(new GoogleStrategy({
-  clientID: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/auth/google/callback'
-}, async (accessToken, refreshToken, profile, done) => {
+// Passport configuration - only if Google OAuth credentials exist
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/auth/google/callback'
+  }, async (accessToken, refreshToken, profile, done) => {
   try {
     // Check if user exists
     let user = await dbAsync.get(
@@ -91,7 +92,8 @@ passport.use(new GoogleStrategy({
   } catch (error) {
     return done(error);
   }
-}));
+  }));
+}
 
 passport.serializeUser((user, done) => {
   done(null, user.id);
