@@ -12,6 +12,7 @@ const { db, dbAsync } = require('./config/database');
 const authRoutes = require('./routes/auth');
 const templateRoutes = require('./routes/template');
 const emailSettingsRoutes = require('./routes/emailSettings');
+const generatorRoutes = require('./routes/generator');
 const { startContentGenerationJob, testEmailConnection } = require('./services/emailer');
 const { startContentGenerationJob: startScheduledJob } = require('./jobs/contentGenerator');
 
@@ -109,6 +110,12 @@ passport.deserializeUser(async (id, done) => {
 app.use('/auth', authRoutes);
 app.use('/api', templateRoutes);
 app.use('/api', emailSettingsRoutes);
+app.use('/api', generatorRoutes);
+
+// Content Generator page
+app.get('/generator', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'content-generator.html'));
+});
 
 // Health check
 app.get('/health', (req, res) => {
