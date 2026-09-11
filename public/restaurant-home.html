@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ปายแซ่บ</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #d32f2f 0%, #ff6f00 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      text-align: center;
+      max-width: 100%;
+    }
+
+    .logo-section {
+      color: white;
+      margin-bottom: 40px;
+    }
+
+    .logo {
+      font-size: 80px;
+      margin-bottom: 20px;
+    }
+
+    .logo-title {
+      font-size: 48px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .logo-subtitle {
+      font-size: 16px;
+      opacity: 0.95;
+      font-style: italic;
+      line-height: 1.5;
+    }
+
+    .buttons-section {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .btn {
+      background: white;
+      border: none;
+      padding: 30px 20px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 18px;
+      font-weight: 700;
+      transition: all 0.3s;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: #333;
+    }
+
+    .btn:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+
+    .btn:active {
+      transform: translateY(-2px);
+    }
+
+    .btn-icon {
+      font-size: 48px;
+    }
+
+    .btn-text {
+      display: block;
+    }
+
+    .btn.customer {
+      background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
+      color: white;
+    }
+
+    .btn.admin {
+      background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+      color: white;
+    }
+
+    .footer {
+      color: white;
+      margin-top: 40px;
+      font-size: 12px;
+      opacity: 0.8;
+    }
+
+    @media (max-width: 600px) {
+      .logo-title {
+        font-size: 36px;
+      }
+
+      .logo {
+        font-size: 60px;
+      }
+
+      .buttons-section {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo-section">
+      <div class="logo">🌶️</div>
+      <div class="logo-title">ปายแซ่บ</div>
+      <div class="logo-subtitle">
+        คิดถึงความแซ่บ นัว คิดถึงเรา
+      </div>
+    </div>
+
+    <div class="buttons-section">
+      <a href="qr-scanner.html" class="btn customer">
+        <span class="btn-icon">📱</span>
+        <span class="btn-text">สแกน QR<br/>และสั่งอาหาร</span>
+      </a>
+
+      <a href="admin-dashboard.html" class="btn admin">
+        <span class="btn-icon">👨‍🍳</span>
+        <span class="btn-text">ระบบเชฟ<br/>(Admin)</span>
+      </a>
+    </div>
+
+    <div class="footer">
+      <p>ยินดีต้อนรับสู่ระบบสั่งอาหารออนไลน์</p>
+    </div>
+  </div>
+</body>
+</html>

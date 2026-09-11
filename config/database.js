@@ -77,6 +77,63 @@ function initializeDatabase() {
       FOREIGN KEY(userId) REFERENCES users(id)
     )
   `);
+
+  // Restaurant System - Tables
+  db.run(`
+    CREATE TABLE IF NOT EXISTS restaurant_tables (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      table_number INTEGER UNIQUE NOT NULL,
+      qr_code TEXT UNIQUE NOT NULL,
+      status TEXT DEFAULT 'available',
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Restaurant System - Menu Items
+  db.run(`
+    CREATE TABLE IF NOT EXISTS menu_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      price REAL NOT NULL,
+      description TEXT,
+      image_url TEXT,
+      available BOOLEAN DEFAULT 1,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Restaurant System - Orders
+  db.run(`
+    CREATE TABLE IF NOT EXISTS orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id TEXT UNIQUE NOT NULL,
+      table_id INTEGER NOT NULL,
+      status TEXT DEFAULT 'pending',
+      total REAL NOT NULL,
+      payment_status TEXT DEFAULT 'unpaid',
+      device_id TEXT,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      completedAt DATETIME,
+      FOREIGN KEY(table_id) REFERENCES restaurant_tables(id)
+    )
+  `);
+
+  // Restaurant System - Order Items
+  db.run(`
+    CREATE TABLE IF NOT EXISTS order_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL,
+      menu_item_id INTEGER NOT NULL,
+      quantity INTEGER NOT NULL DEFAULT 1,
+      unit_price REAL NOT NULL,
+      notes TEXT,
+      prepared BOOLEAN DEFAULT 0,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(order_id) REFERENCES orders(id),
+      FOREIGN KEY(menu_item_id) REFERENCES menu_items(id)
+    )
+  `);
 }
 
 // Promisify database methods

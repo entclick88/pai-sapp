@@ -1,0 +1,466 @@
+const express = require('express');
+const router = express.Router();
+const { dbAsync } = require('../config/database');
+const crypto = require('crypto');
+
+// Generate unique QR code identifier
+function generateQRCode() {
+  return crypto.randomBytes(8).toString('hex');
+}
+
+// Generate unique order ID
+function generateOrderId() {
+  return `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`.toUpperCase();
+}
+
+// ===== CUSTOMER ROUTES =====
+
+// Get table info and check QR code
+router.get('/restaurant/table/:qrCode', async (req, res) => {
+  try {
+    const table = await dbAsync.get(
+      'SELECT * FROM restaurant_tables WHERE qr_code = ?',
+      [req.params.qrCode]
+    );
+
+    if (!table) {
+      return res.status(404).json({ error: 'ไม่พบโต๊ะนี้' });
+    }
+
+    res.json({ success: true, table });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get all menu items
+router.get('/restaurant/menu', async (req, res) => {
+  try {
+    const items = await dbAsync.all(
+      'SELECT * FROM menu_items WHERE available = 1 ORDER BY category, name'
+    );
+    res.json({ success: true, items });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get menu items by category
+router.get('/restaurant/menu/:category', async (req, res) => {
+  try {
+    const items = await dbAsync.all(
+      'SELECT * FROM menu_items WHERE category = ? AND available = 1 ORDER BY name',
+      [req.params.category]
+    );
+    res.json({ success: true, items });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create new order
+router.post('/restaurant/order', async (req, res) => {
+  try {
+    const { tableId, deviceId } = req.body;
+
+    if (!tableId) {
+      return res.status(400).json({ error: 'ต้องระบุโต๊ะ' });
+    }
+
+    const orderId = generateOrderId();
+
+    const result = await dbAsync.run(
+      `INSERT INTO orders (order_id, table_id, status, total, device_id)
+       VALUES (?, ?, ?, ?, ?)`,
+      [orderId, tableId, 'pending', 0, deviceId || null]
+    );
+
+    res.json({
+      success: true,
+      order: {
+        id: result.id,
+        order_id: orderId,
+        table_id: tableId,
+        status: 'pending',
+        total: 0
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Add item to order
+router.post('/restaurant/order/:orderId/items', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { menuItemId, quantity, notes } = req.body;
+
+    if (!menuItemId || !quantity) {
+      return res.status(400).json({ error: 'ต้องระบุอาหารและจำนวน' });
+    }
+
+    // Get order
+    const order = await dbAsync.get(
+      'SELECT * FROM orders WHERE order_id = ?',
+      [orderId]
+    );
+
+    if (!order) {
+      return res.status(404).json({ error: 'ไม่พบออเดอร์นี้' });
+    }
+
+    // Get menu item
+    const menuItem = await dbAsync.get(
+      'SELECT * FROM menu_items WHERE id = ?',
+      [menuItemId]
+    );
+
+    if (!menuItem) {
+      return res.status(404).json({ error: 'ไม่พบอาหารนี้' });
+    }
+
+    // Add item to order
+    await dbAsync.run(
+      `INSERT INTO order_items (order_id, menu_item_id, quantity, unit_price, notes)
+       VALUES (?, ?, ?, ?, ?)`,
+      [order.id, menuItemId, quantity, menuItem.price, notes || null]
+    );
+
+    // Update order total
+    const items = await dbAsync.all(
+      `SELECT oi.quantity, oi.unit_price FROM order_items oi WHERE oi.order_id = ?`,
+      [order.id]
+    );
+
+    const total = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+
+    await dbAsync.run(
+      'UPDATE orders SET total = ? WHERE id = ?',
+      [total, order.id]
+    );
+
+    res.json({
+      success: true,
+      message: 'เพิ่มอาหารในออเดอร์แล้ว',
+      total
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get order details
+router.get('/restaurant/order/:orderId', async (req, res) => {
+  try {
+    const order = await dbAsync.get(
+      'SELECT * FROM orders WHERE order_id = ?',
+      [req.params.orderId]
+    );
+
+    if (!order) {
+      return res.status(404).json({ error: 'ไม่พบออเดอร์นี้' });
+    }
+
+    const items = await dbAsync.all(
+      `SELECT oi.*, mi.name, mi.category FROM order_items oi
+       JOIN menu_items mi ON oi.menu_item_id = mi.id
+       WHERE oi.order_id = ? ORDER BY oi.createdAt DESC`,
+      [order.id]
+    );
+
+    res.json({
+      success: true,
+      order: {
+        ...order,
+        items
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update order (add/remove items)
+router.put('/restaurant/order/:orderId', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { action, itemId, quantity } = req.body;
+
+    const order = await dbAsync.get(
+      'SELECT * FROM orders WHERE order_id = ?',
+      [orderId]
+    );
+
+    if (!order) {
+      return res.status(404).json({ error: 'ไม่พบออเดอร์นี้' });
+    }
+
+    if (action === 'remove') {
+      await dbAsync.run(
+        'DELETE FROM order_items WHERE id = ? AND order_id = ?',
+        [itemId, order.id]
+      );
+    } else if (action === 'update') {
+      await dbAsync.run(
+        'UPDATE order_items SET quantity = ? WHERE id = ? AND order_id = ?',
+        [quantity, itemId, order.id]
+      );
+    }
+
+    // Recalculate total
+    const items = await dbAsync.all(
+      `SELECT oi.quantity, oi.unit_price FROM order_items oi WHERE oi.order_id = ?`,
+      [order.id]
+    );
+
+    const total = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+
+    await dbAsync.run(
+      'UPDATE orders SET total = ? WHERE id = ?',
+      [total, order.id]
+    );
+
+    res.json({
+      success: true,
+      message: 'อัปเดตออเดอร์แล้ว',
+      total
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Checkout order (show payment options)
+router.post('/restaurant/order/:orderId/checkout', async (req, res) => {
+  try {
+    const order = await dbAsync.get(
+      'SELECT * FROM orders WHERE order_id = ?',
+      [req.params.orderId]
+    );
+
+    if (!order) {
+      return res.status(404).json({ error: 'ไม่พบออเดอร์นี้' });
+    }
+
+    const items = await dbAsync.all(
+      `SELECT oi.*, mi.name FROM order_items oi
+       JOIN menu_items mi ON oi.menu_item_id = mi.id
+       WHERE oi.order_id = ?`,
+      [order.id]
+    );
+
+    res.json({
+      success: true,
+      order: {
+        ...order,
+        itemCount: items.length,
+        items: items.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.unit_price,
+          subtotal: item.quantity * item.unit_price
+        }))
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Mark order as paid
+router.post('/restaurant/order/:orderId/pay', async (req, res) => {
+  try {
+    const order = await dbAsync.get(
+      'SELECT * FROM orders WHERE order_id = ?',
+      [req.params.orderId]
+    );
+
+    if (!order) {
+      return res.status(404).json({ error: 'ไม่พบออเดอร์นี้' });
+    }
+
+    await dbAsync.run(
+      'UPDATE orders SET payment_status = ?, status = ? WHERE order_id = ?',
+      ['paid', 'confirmed', req.params.orderId]
+    );
+
+    res.json({
+      success: true,
+      message: 'ได้รับการชำระเงินแล้ว เรากำลังเตรียมอาหารของคุณ'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ===== ADMIN ROUTES =====
+
+// Get all active orders
+router.get('/restaurant/admin/orders', async (req, res) => {
+  try {
+    const orders = await dbAsync.all(
+      `SELECT o.*, t.table_number
+       FROM orders o
+       JOIN restaurant_tables t ON o.table_id = t.id
+       WHERE o.status IN ('pending', 'confirmed')
+       ORDER BY o.createdAt DESC`
+    );
+
+    const ordersWithItems = [];
+    for (const order of orders) {
+      const items = await dbAsync.all(
+        `SELECT oi.*, mi.name FROM order_items oi
+         JOIN menu_items mi ON oi.menu_item_id = mi.id
+         WHERE oi.order_id = ?`,
+        [order.id]
+      );
+      ordersWithItems.push({ ...order, items });
+    }
+
+    res.json({ success: true, orders: ordersWithItems });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update order status (mark as served)
+router.put('/restaurant/admin/order/:orderId/status', async (req, res) => {
+  try {
+    const { status } = req.body;
+
+    const validStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'served', 'completed', 'cancelled'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: 'สถานะไม่ถูกต้อง' });
+    }
+
+    await dbAsync.run(
+      'UPDATE orders SET status = ?, completedAt = ? WHERE order_id = ?',
+      [status, status === 'completed' ? new Date().toISOString() : null, req.params.orderId]
+    );
+
+    res.json({
+      success: true,
+      message: `อัปเดตสถานะเป็น ${status} แล้ว`
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Mark specific order items as prepared
+router.put('/restaurant/admin/order/:orderId/items/:itemId/prepare', async (req, res) => {
+  try {
+    await dbAsync.run(
+      'UPDATE order_items SET prepared = 1 WHERE id = ? AND order_id = ?',
+      [req.params.itemId, req.params.orderId]
+    );
+
+    res.json({ success: true, message: 'ทำเสร็จแล้ว' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ===== ADMIN MENU MANAGEMENT =====
+
+// Get all menu items
+router.get('/restaurant/admin/menu', async (req, res) => {
+  try {
+    const items = await dbAsync.all(
+      'SELECT * FROM menu_items ORDER BY category, name'
+    );
+    res.json({ success: true, items });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create menu item
+router.post('/restaurant/admin/menu', async (req, res) => {
+  try {
+    const { name, category, price, description, imageUrl } = req.body;
+
+    if (!name || !category || !price) {
+      return res.status(400).json({ error: 'ต้องระบุชื่อ, หมวดหมู่ และราคา' });
+    }
+
+    const result = await dbAsync.run(
+      `INSERT INTO menu_items (name, category, price, description, image_url)
+       VALUES (?, ?, ?, ?, ?)`,
+      [name, category, price, description || null, imageUrl || null]
+    );
+
+    res.json({
+      success: true,
+      message: 'เพิ่มเมนูแล้ว',
+      item: { id: result.id, name, category, price }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update menu item
+router.put('/restaurant/admin/menu/:id', async (req, res) => {
+  try {
+    const { name, category, price, description, imageUrl, available } = req.body;
+
+    await dbAsync.run(
+      `UPDATE menu_items SET name = ?, category = ?, price = ?, description = ?, image_url = ?, available = ?
+       WHERE id = ?`,
+      [name, category, price, description, imageUrl, available, req.params.id]
+    );
+
+    res.json({ success: true, message: 'อัปเดตเมนูแล้ว' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ===== TABLE MANAGEMENT =====
+
+// Get all tables
+router.get('/restaurant/admin/tables', async (req, res) => {
+  try {
+    const tables = await dbAsync.all(
+      'SELECT * FROM restaurant_tables ORDER BY table_number'
+    );
+    res.json({ success: true, tables });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create table with QR code
+router.post('/restaurant/admin/tables', async (req, res) => {
+  try {
+    const { tableNumber } = req.body;
+
+    if (!tableNumber) {
+      return res.status(400).json({ error: 'ต้องระบุหมายเลขโต๊ะ' });
+    }
+
+    const qrCode = generateQRCode();
+
+    const result = await dbAsync.run(
+      `INSERT INTO restaurant_tables (table_number, qr_code)
+       VALUES (?, ?)`,
+      [tableNumber, qrCode]
+    );
+
+    res.json({
+      success: true,
+      message: 'เพิ่มโต๊ะแล้ว',
+      table: {
+        id: result.id,
+        table_number: tableNumber,
+        qr_code: qrCode
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+module.exports = router;

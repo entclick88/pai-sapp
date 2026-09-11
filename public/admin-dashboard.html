@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ปายแซ่บ - ระบบเชฟ</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #d32f2f 0%, #ff6f00 100%);
+      color: white;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .header h1 {
+      font-size: 24px;
+    }
+
+    .header-subtitle {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    .refresh-btn {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      border: 2px solid white;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .refresh-btn:hover {
+      background: white;
+      color: #d32f2f;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 20px auto;
+      padding: 0 10px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: #d32f2f;
+      margin-bottom: 5px;
+    }
+
+    .stat-label {
+      font-size: 14px;
+      color: #999;
+    }
+
+    .orders-section {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 15px;
+    }
+
+    .order-card {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    .order-header {
+      background: #f5f5f5;
+      padding: 15px;
+      border-bottom: 2px solid #d32f2f;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .order-table {
+      font-size: 18px;
+      font-weight: 700;
+      color: #d32f2f;
+    }
+
+    .order-status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-pending {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .status-confirmed {
+      background: #cfe2ff;
+      color: #084298;
+    }
+
+    .status-preparing {
+      background: #e2e3e5;
+      color: #383d41;
+    }
+
+    .status-ready {
+      background: #d1e7dd;
+      color: #0f5132;
+    }
+
+    .status-served {
+      background: #d1e7dd;
+      color: #0f5132;
+    }
+
+    .order-content {
+      padding: 15px;
+    }
+
+    .order-id {
+      font-size: 12px;
+      color: #999;
+      margin-bottom: 10px;
+    }
+
+    .order-items {
+      margin-bottom: 15px;
+    }
+
+    .order-item {
+      padding: 10px;
+      background: #f9f9f9;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      font-size: 14px;
+    }
+
+    .order-item.prepared {
+      background: #e8f5e9;
+      opacity: 0.7;
+    }
+
+    .item-name {
+      flex: 1;
+    }
+
+    .item-qty {
+      background: #d32f2f;
+      color: white;
+      padding: 2px 6px;
+      border-radius: 3px;
+      margin: 0 8px;
+      min-width: 25px;
+      text-align: center;
+    }
+
+    .item-prepare-btn {
+      background: #4caf50;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .item-prepare-btn:hover {
+      background: #45a049;
+    }
+
+    .item-prepare-btn.done {
+      background: #999;
+      cursor: default;
+    }
+
+    .order-total {
+      font-size: 16px;
+      font-weight: 700;
+      color: #d32f2f;
+      padding-top: 10px;
+      border-top: 1px solid #eee;
+      margin-bottom: 15px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .order-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .action-btn {
+      padding: 10px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+      transition: all 0.3s;
+    }
+
+    .action-btn.primary {
+      background: #4caf50;
+      color: white;
+    }
+
+    .action-btn.primary:hover {
+      background: #45a049;
+    }
+
+    .action-btn.secondary {
+      background: #2196f3;
+      color: white;
+    }
+
+    .action-btn.secondary:hover {
+      background: #0b7dda;
+    }
+
+    .action-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #999;
+    }
+
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 10px;
+    }
+
+    .timestamp {
+      font-size: 12px;
+      color: #999;
+      margin-top: 8px;
+    }
+
+    @media (max-width: 768px) {
+      .orders-section {
+        grid-template-columns: 1fr;
+      }
+
+      .header {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+      }
+
+      .order-actions {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>🌶️ ปายแซ่บ - ระบบเชฟ</h1>
+      <div class="header-subtitle">กำลังดูออเดอร์ที่กำลังทำอยู่</div>
+    </div>
+    <button class="refresh-btn" onclick="loadOrders()">🔄 รีเฟรช</button>
+  </div>
+
+  <div class="container">
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-value" id="countPending">0</div>
+        <div class="stat-label">รอดำเนินการ</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="countPreparing">0</div>
+        <div class="stat-label">กำลังเตรียม</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="countReady">0</div>
+        <div class="stat-label">พร้อมเสิร์ฟ</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="countTotal">0</div>
+        <div class="stat-label">ทั้งหมด</div>
+      </div>
+    </div>
+
+    <div class="orders-section" id="ordersContainer">
+      <div class="empty-state">
+        <div class="empty-state-icon">📋</div>
+        <p>ยังไม่มีออเดอร์</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allOrders = [];
+
+    async function loadOrders() {
+      try {
+        const res = await fetch('/api/restaurant/admin/orders');
+        const data = await res.json();
+        allOrders = data.orders || [];
+        renderOrders();
+        updateStats();
+      } catch (error) {
+        console.error('Error loading orders:', error);
+      }
+    }
+
+    function updateStats() {
+      const pending = allOrders.filter(o => o.status === 'pending').length;
+      const preparing = allOrders.filter(o => o.status === 'preparing').length;
+      const ready = allOrders.filter(o => o.status === 'ready').length;
+
+      document.getElementById('countPending').textContent = pending;
+      document.getElementById('countPreparing').textContent = preparing;
+      document.getElementById('countReady').textContent = ready;
+      document.getElementById('countTotal').textContent = allOrders.length;
+    }
+
+    function renderOrders() {
+      const container = document.getElementById('ordersContainer');
+
+      if (allOrders.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state" style="grid-column: 1/-1;">
+            <div class="empty-state-icon">📋</div>
+            <p>ยังไม่มีออเดอร์</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Sort by status priority: pending -> confirmed -> preparing -> ready
+      const statusPriority = { 'pending': 0, 'confirmed': 1, 'preparing': 2, 'ready': 3 };
+      const sorted = [...allOrders].sort((a, b) => {
+        const priorityDiff = (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99);
+        if (priorityDiff !== 0) return priorityDiff;
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+
+      container.innerHTML = sorted.map(order => renderOrderCard(order)).join('');
+    }
+
+    function renderOrderCard(order) {
+      const statusClass = `status-${order.status}`;
+      const createdTime = new Date(order.createdAt);
+      const now = new Date();
+      const diffMinutes = Math.floor((now - createdTime) / 60000);
+      const timeText = diffMinutes < 1 ? 'เพิ่งเดี๋ยว' : `${diffMinutes} นาทีที่แล้ว`;
+
+      return `
+        <div class="order-card">
+          <div class="order-header">
+            <div>
+              <div class="order-table">โต๊ะที่ ${order.table_number}</div>
+              <div class="order-id">${order.order_id}</div>
+            </div>
+            <span class="order-status ${statusClass}">${getStatusLabel(order.status)}</span>
+          </div>
+          <div class="order-content">
+            <div class="order-items">
+              ${order.items.map(item => `
+                <div class="order-item ${item.prepared ? 'prepared' : ''}">
+                  <div class="item-name">
+                    <strong>${item.name}</strong>
+                    ${item.notes ? `<div style="font-size: 12px; color: #999;">${item.notes}</div>` : ''}
+                  </div>
+                  <span class="item-qty">${item.quantity}</span>
+                  ${!item.prepared ? `<button class="item-prepare-btn" onclick="markItemPrepared(${order.id}, ${item.id})">✓</button>` : ''}
+                </div>
+              `).join('')}
+            </div>
+
+            <div class="order-total">
+              <span>รวม:</span>
+              <span>฿${order.total.toFixed(2)}</span>
+            </div>
+
+            <div class="timestamp">สั่งมา ${timeText}</div>
+
+            <div class="order-actions">
+              ${order.status === 'pending' ? `
+                <button class="action-btn primary" onclick="updateOrderStatus('${order.order_id}', 'confirmed')">ยืนยันออเดอร์</button>
+                <button class="action-btn secondary" onclick="updateOrderStatus('${order.order_id}', 'preparing')">เริ่มเตรียม</button>
+              ` : order.status === 'confirmed' ? `
+                <button class="action-btn primary" onclick="updateOrderStatus('${order.order_id}', 'preparing')">เริ่มเตรียม</button>
+                <button class="action-btn secondary" onclick="updateOrderStatus('${order.order_id}', 'cancelled')">ยกเลิก</button>
+              ` : order.status === 'preparing' ? `
+                <button class="action-btn primary" onclick="updateOrderStatus('${order.order_id}', 'ready')">พร้อมเสิร์ฟ</button>
+                <button class="action-btn secondary" onclick="updateOrderStatus('${order.order_id}', 'cancelled')">ยกเลิก</button>
+              ` : order.status === 'ready' ? `
+                <button class="action-btn primary" onclick="updateOrderStatus('${order.order_id}', 'served')">ส่งแล้ว</button>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function getStatusLabel(status) {
+      const labels = {
+        'pending': 'รอยืนยัน',
+        'confirmed': 'ยืนยันแล้ว',
+        'preparing': 'กำลังเตรียม',
+        'ready': 'พร้อมเสิร์ฟ',
+        'served': 'ส่งแล้ว',
+        'completed': 'เสร็จสิ้น',
+        'cancelled': 'ยกเลิก'
+      };
+      return labels[status] || status;
+    }
+
+    async function updateOrderStatus(orderId, status) {
+      try {
+        const res = await fetch(`/api/restaurant/admin/order/${orderId}/status`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+
+        if (res.ok) {
+          loadOrders();
+        } else {
+          alert('เกิดข้อผิดพลาด');
+        }
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    }
+
+    async function markItemPrepared(orderId, itemId) {
+      try {
+        const res = await fetch(`/api/restaurant/admin/order/${orderId}/items/${itemId}/prepare`, {
+          method: 'PUT'
+        });
+
+        if (res.ok) {
+          loadOrders();
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    }
+
+    // Auto-refresh every 5 seconds
+    loadOrders();
+    setInterval(loadOrders, 5000);
+  </script>
+</body>
+</html>

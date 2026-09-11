@@ -13,6 +13,7 @@ const authRoutes = require('./routes/auth');
 const templateRoutes = require('./routes/template');
 const emailSettingsRoutes = require('./routes/emailSettings');
 const generatorRoutes = require('./routes/generator');
+const restaurantRoutes = require('./routes/restaurant');
 const { startContentGenerationJob, testEmailConnection } = require('./services/emailer');
 const { startContentGenerationJob: startScheduledJob } = require('./jobs/contentGenerator');
 
@@ -122,6 +123,7 @@ app.use('/auth', authRoutes);
 app.use('/api', templateRoutes);
 app.use('/api', emailSettingsRoutes);
 app.use('/api', generatorRoutes);
+app.use('/api', restaurantRoutes);
 
 // Content Generator page
 app.get('/generator', (req, res) => {
@@ -139,6 +141,23 @@ app.get('/dashboard', (req, res) => {
     return res.redirect('/');
   }
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+// Restaurant routes
+app.get('/restaurant', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'restaurant-home.html'));
+});
+
+app.get('/qr-scanner.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'qr-scanner.html'));
+});
+
+app.get('/order.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'order.html'));
+});
+
+app.get('/admin-dashboard.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin-dashboard.html'));
 });
 
 // Main page
