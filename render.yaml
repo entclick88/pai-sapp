@@ -1,33 +1,13 @@
 services:
   - type: web
-    name: auto-content-generator
+    name: pai-sapp
     env: node
     plan: free
     buildCommand: npm install
     startCommand: npm start
+    healthCheckPath: /health
     envVars:
-      - key: PORT
-        value: 3000
       - key: NODE_ENV
         value: production
-      - key: DATABASE_PATH
-        value: ./data/content.db
-      - key: ANTHROPIC_API_KEY
-        sync: false
-      - key: GOOGLE_CLIENT_ID
-        sync: false
-      - key: GOOGLE_CLIENT_SECRET
-        sync: false
-      - key: GOOGLE_CALLBACK_URL
-        value: https://auto-content-generator.onrender.com/auth/google/callback
-        sync: false
-      - key: EMAIL_USER
-        sync: false
-      - key: EMAIL_PASSWORD
-        sync: false
-      - key: EMAIL_FROM
-        sync: false
-      - key: SESSION_SECRET
-        sync: false
-      - key: CONTENT_TOPIC
-        value: Technology news and trends
+      - key: PORT
+        value: 3000
