@@ -2,12 +2,18 @@ services:
   - type: web
     name: pai-sapp
     env: node
-    plan: free
+    plan: starter
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /health
+    disk:
+      name: pai-sapp-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 3000
+      - key: DATABASE_PATH
+        value: /var/data/content.db
