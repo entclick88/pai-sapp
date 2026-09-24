@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ปายแซ่บ - วิเคราะห์ข้อมูล</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #d32f2f 0%, #ff6f00 100%);
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .header h1 { font-size: 24px; }
+    .header p { font-size: 12px; opacity: 0.9; margin-top: 4px; }
+
+    .container {
+      max-width: 900px;
+      margin: 20px auto;
+      padding: 0 15px 60px;
+    }
+
+    /* PIN gate */
+    .pin-gate {
+      max-width: 320px;
+      margin: 80px auto;
+      background: white;
+      border-radius: 10px;
+      padding: 30px;
+      text-align: center;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+
+    .pin-gate input {
+      width: 100%;
+      padding: 12px;
+      font-size: 20px;
+      text-align: center;
+      letter-spacing: 4px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      margin: 15px 0;
+    }
+
+    .pin-gate button {
+      width: 100%;
+      padding: 12px;
+      background: #d32f2f;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 15px;
+    }
+
+    .pin-error { color: #d32f2f; font-size: 13px; margin-top: 8px; display: none; }
+
+    /* Dashboard */
+    .filters {
+      background: white;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 20px 0;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .filter-btn {
+      padding: 8px 14px;
+      border: 1px solid #ddd;
+      background: white;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .filter-btn.active { background: #d32f2f; color: white; border-color: #d32f2f; }
+
+    .filters input[type="date"] { padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .card .value { font-size: 26px; font-weight: 700; margin-bottom: 4px; }
+    .card .label { font-size: 13px; color: #999; }
+    .card.sales .value { color: #2e7d32; }
+    .card.costs .value { color: #d32f2f; }
+    .card.profit .value.pos { color: #2e7d32; }
+    .card.profit .value.neg { color: #d32f2f; }
+
+    .section {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .section h2 { font-size: 16px; margin-bottom: 15px; color: #d32f2f; }
+
+    .item-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      font-size: 14px;
+    }
+
+    .item-name { width: 150px; flex-shrink: 0; }
+    .item-bar-wrap { flex: 1; background: #f0f0f0; border-radius: 4px; overflow: hidden; height: 20px; }
+    .item-bar { background: linear-gradient(90deg, #ff6f00, #d32f2f); height: 100%; }
+    .item-value { width: 90px; text-align: right; flex-shrink: 0; font-weight: 600; }
+
+    .empty { color: #999; text-align: center; padding: 20px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📊 ปายแซ่บ - วิเคราะห์ข้อมูล</h1>
+    <p>ยอดขาย ต้นทุน และกำไร-ขาดทุน</p>
+  </div>
+
+  <div id="pinGateWrap"></div>
+  <div class="container" id="dashboard" style="display:none;"></div>
+
+  <script>
+    let unlocked = false;
+
+    async function init() {
+      const res = await fetch('/api/restaurant/owner/pin-required');
+      const data = await res.json();
+
+      if (!data.required || sessionStorage.getItem('paisaep_owner_unlocked') === '1') {
+        unlocked = true;
+        showDashboard();
+      } else {
+        showPinGate();
+      }
+    }
+
+    function showPinGate() {
+      document.getElementById('pinGateWrap').innerHTML = `
+        <div class="pin-gate">
+          <div style="font-size:40px;">🔒</div>
+          <div style="margin:10px 0; font-weight:600;">กรอกรหัส PIN เพื่อดูข้อมูล</div>
+          <input type="password" id="pinInput" inputmode="numeric" maxlength="10" placeholder="••••">
+          <button onclick="checkPin()">เข้าสู่ระบบ</button>
+          <div class="pin-error" id="pinError">รหัสไม่ถูกต้อง</div>
+        </div>
+      `;
+      document.getElementById('pinInput').addEventListener('keydown', e => {
+        if (e.key === 'Enter') checkPin();
+      });
+    }
+
+    async function checkPin() {
+      const pin = document.getElementById('pinInput').value;
+      const res = await fetch('/api/restaurant/owner/verify-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        sessionStorage.setItem('paisaep_owner_unlocked', '1');
+        document.getElementById('pinGateWrap').innerHTML = '';
+        showDashboard();
+      } else {
+        document.getElementById('pinError').style.display = 'block';
+      }
+    }
+
+    function showDashboard() {
+      document.getElementById('dashboard').style.display = 'block';
+      document.getElementById('dashboard').innerHTML = `
+        <div class="filters" id="filters"></div>
+        <div class="summary-cards" id="summaryCards"></div>
+        <div class="section">
+          <h2>🏆 เมนูขายดี (ตามช่วงเวลาที่เลือก)</h2>
+          <div id="topItems"></div>
+        </div>
+        <div class="section">
+          <h2>📈 ยอดขายรายวัน</h2>
+          <div id="dailySales"></div>
+        </div>
+      `;
+      renderFilters();
+      loadAnalytics(daysAgoStr(6), todayStr());
+    }
+
+    // Always compute the Thai (UTC+7) calendar date, regardless of the
+    // viewer's own browser timezone.
+    function todayStr() {
+      return new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+    }
+
+    function daysAgoStr(n) {
+      return new Date(Date.now() + 7 * 3600 * 1000 - n * 86400000).toISOString().slice(0, 10);
+    }
+
+    let currentFrom, currentTo;
+
+    function renderFilters() {
+      const el = document.getElementById('filters');
+      el.innerHTML = `
+        <button class="filter-btn" onclick="setRange(0, this)">วันนี้</button>
+        <button class="filter-btn active" onclick="setRange(6, this)">7 วัน</button>
+        <button class="filter-btn" onclick="setRange(29, this)">30 วัน</button>
+        <button class="filter-btn" onclick="setRange(3650, this)">ทั้งหมด</button>
+        <span style="margin-left:auto; display:flex; gap:6px; align-items:center;">
+          <input type="date" id="fromDate">
+          <span>ถึง</span>
+          <input type="date" id="toDate">
+          <button class="filter-btn" onclick="applyCustomRange()">ค้นหา</button>
+        </span>
+      `;
+    }
+
+    function setRange(days, btn) {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const from = daysAgoStr(days);
+      const to = todayStr();
+      document.getElementById('fromDate').value = from;
+      document.getElementById('toDate').value = to;
+      loadAnalytics(from, to);
+    }
+
+    function applyCustomRange() {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      const from = document.getElementById('fromDate').value;
+      const to = document.getElementById('toDate').value;
+      if (from && to) loadAnalytics(from, to);
+    }
+
+    async function loadAnalytics(from, to) {
+      currentFrom = from;
+      currentTo = to;
+      document.getElementById('fromDate').value = from;
+      document.getElementById('toDate').value = to;
+
+      const res = await fetch(`/api/restaurant/owner/analytics?from=${from}&to=${to}`);
+      const data = await res.json();
+      renderAnalytics(data.analytics);
+    }
+
+    function renderAnalytics(a) {
+      const profitClass = a.profit >= 0 ? 'pos' : 'neg';
+      document.getElementById('summaryCards').innerHTML = `
+        <div class="card sales">
+          <div class="value">฿${a.sales.toFixed(2)}</div>
+          <div class="label">ยอดขาย (${a.orderCount} ออเดอร์)</div>
+        </div>
+        <div class="card costs">
+          <div class="value">฿${a.costs.toFixed(2)}</div>
+          <div class="label">ต้นทุน/รายจ่าย</div>
+        </div>
+        <div class="card profit">
+          <div class="value ${profitClass}">฿${a.profit.toFixed(2)}</div>
+          <div class="label">${a.profit >= 0 ? 'กำไร' : 'ขาดทุน'}</div>
+        </div>
+      `;
+
+      const topItemsEl = document.getElementById('topItems');
+      if (a.topItems.length === 0) {
+        topItemsEl.innerHTML = '<div class="empty">ยังไม่มีออเดอร์ที่ชำระเงินแล้วในช่วงนี้</div>';
+      } else {
+        const maxRevenue = Math.max(...a.topItems.map(i => i.revenue));
+        topItemsEl.innerHTML = a.topItems.map(i => `
+          <div class="item-row">
+            <div class="item-name">${i.name}</div>
+            <div class="item-bar-wrap"><div class="item-bar" style="width:${(i.revenue / maxRevenue * 100).toFixed(0)}%"></div></div>
+            <div class="item-value">฿${i.revenue.toFixed(0)} (${i.quantity})</div>
+          </div>
+        `).join('');
+      }
+
+      const dailyEl = document.getElementById('dailySales');
+      if (a.dailySales.length === 0) {
+        dailyEl.innerHTML = '<div class="empty">ยังไม่มีข้อมูลยอดขายในช่วงนี้</div>';
+      } else {
+        const maxSales = Math.max(...a.dailySales.map(d => d.sales));
+        dailyEl.innerHTML = a.dailySales.map(d => `
+          <div class="item-row">
+            <div class="item-name">${d.day}</div>
+            <div class="item-bar-wrap"><div class="item-bar" style="width:${(d.sales / maxSales * 100).toFixed(0)}%"></div></div>
+            <div class="item-value">฿${d.sales.toFixed(0)}</div>
+          </div>
+        `).join('');
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

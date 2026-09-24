@@ -254,6 +254,20 @@
     </div>
 
     <div class="section">
+      <h2>📊 หน้าวิเคราะห์ข้อมูล (สำหรับเจ้าของร้าน)</h2>
+      <div class="settings-form">
+        <div class="field">
+          <label>PIN ป้องกันหน้าวิเคราะห์ข้อมูล (ไม่บังคับ)</label>
+          <input type="text" id="ownerPin" placeholder="เว้นว่าง = ไม่ต้องใส่รหัส">
+        </div>
+        <button class="btn" onclick="saveOwnerPin()">บันทึก</button>
+      </div>
+      <div class="hint">
+        ลิงก์หน้าเจ้าของร้าน: <code>owner-dashboard.html</code> — ถ้าตั้ง PIN ไว้ จะต้องใส่รหัสก่อนเข้าดูข้อมูลยอดขาย/กำไรขาดทุน
+      </div>
+    </div>
+
+    <div class="section">
       <h2>➕ เพิ่มเมนูใหม่</h2>
       <div class="add-form">
         <input type="text" id="newName" placeholder="ชื่อเมนู">
@@ -276,10 +290,21 @@
     let allItems = [];
 
     async function loadSettings() {
-      const res = await fetch('/api/restaurant/settings');
+      const res = await fetch('/api/restaurant/admin/settings');
       const data = await res.json();
       document.getElementById('promptpayId').value = data.settings.promptpayId || '';
       document.getElementById('shopName').value = data.settings.shopName || '';
+      document.getElementById('ownerPin').value = data.settings.ownerPin || '';
+    }
+
+    async function saveOwnerPin() {
+      const ownerPin = document.getElementById('ownerPin').value.trim();
+      await fetch('/api/restaurant/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ownerPin })
+      });
+      showToast(ownerPin ? 'ตั้ง PIN แล้ว' : 'ปิดการใช้ PIN แล้ว');
     }
 
     async function saveSettings() {

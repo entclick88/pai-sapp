@@ -155,6 +155,18 @@ function initializeDatabase() {
       value TEXT
     )
   `);
+
+  // Restaurant System - Expenses (cost of goods, for profit/loss analysis)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS expenses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      expense_date DATE NOT NULL,
+      description TEXT NOT NULL,
+      category TEXT,
+      amount REAL NOT NULL,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 }
 
 // Promisify database methods

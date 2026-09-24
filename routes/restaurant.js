@@ -597,9 +597,29 @@ router.post('/restaurant/admin/menu/:id/image', upload.single('image'), async (r
 
 // ===== ADMIN SETTINGS (PromptPay ID, shop name) =====
 
+// Admin-only settings read (includes owner_pin, unlike the public /settings endpoint)
+router.get('/restaurant/admin/settings', async (req, res) => {
+  try {
+    const rows = await dbAsync.all('SELECT key, value FROM restaurant_settings');
+    const settings = {};
+    rows.forEach(r => { settings[r.key] = r.value; });
+
+    res.json({
+      success: true,
+      settings: {
+        promptpayId: settings.promptpay_id || '',
+        shopName: settings.shop_name || 'ปายแซ่บ',
+        ownerPin: settings.owner_pin || ''
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.put('/restaurant/admin/settings', async (req, res) => {
   try {
-    const { promptpayId, shopName } = req.body;
+    const { promptpayId, shopName, ownerPin } = req.body;
 
     if (promptpayId !== undefined) {
       await dbAsync.run(
@@ -614,6 +634,14 @@ router.put('/restaurant/admin/settings', async (req, res) => {
         `INSERT INTO restaurant_settings (key, value) VALUES ('shop_name', ?)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
         [shopName]
+      );
+    }
+
+    if (ownerPin !== undefined) {
+      await dbAsync.run(
+        `INSERT INTO restaurant_settings (key, value) VALUES ('owner_pin', ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        [ownerPin]
       );
     }
 
@@ -661,6 +689,142 @@ router.post('/restaurant/admin/tables', async (req, res) => {
         id: result.id,
         table_number: tableNumber,
         qr_code: qrCode
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ===== ADMIN EXPENSES (cost of goods, for profit/loss analysis) =====
+
+// List expenses, optionally filtered by date range
+router.get('/restaurant/admin/expenses', async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    let sql = 'SELECT * FROM expenses';
+    const params = [];
+
+    if (from && to) {
+      sql += ' WHERE expense_date BETWEEN ? AND ?';
+      params.push(from, to);
+    }
+
+    sql += ' ORDER BY expense_date DESC, id DESC';
+
+    const expenses = await dbAsync.all(sql, params);
+    res.json({ success: true, expenses });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Add an expense (e.g. buying raw ingredients)
+router.post('/restaurant/admin/expenses', async (req, res) => {
+  try {
+    const { date, description, category, amount } = req.body;
+
+    if (!date || !description || !amount) {
+      return res.status(400).json({ error: 'ต้องระบุวันที่, รายการ และจำนวนเงิน' });
+    }
+
+    const result = await dbAsync.run(
+      'INSERT INTO expenses (expense_date, description, category, amount) VALUES (?, ?, ?, ?)',
+      [date, description, category || null, amount]
+    );
+
+    res.json({ success: true, message: 'บันทึกรายจ่ายแล้ว', expense: { id: result.id } });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete an expense entry (corrections)
+router.delete('/restaurant/admin/expenses/:id', async (req, res) => {
+  try {
+    await dbAsync.run('DELETE FROM expenses WHERE id = ?', [req.params.id]);
+    res.json({ success: true, message: 'ลบรายการแล้ว' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ===== OWNER ANALYTICS =====
+
+// Whether the owner dashboard should prompt for a PIN before showing data
+router.get('/restaurant/owner/pin-required', async (req, res) => {
+  try {
+    const row = await dbAsync.get(`SELECT value FROM restaurant_settings WHERE key = 'owner_pin'`);
+    res.json({ success: true, required: !!(row && row.value) });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/restaurant/owner/verify-pin', async (req, res) => {
+  try {
+    const row = await dbAsync.get(`SELECT value FROM restaurant_settings WHERE key = 'owner_pin'`);
+    const correctPin = row && row.value;
+    const ok = !correctPin || correctPin === req.body.pin;
+    res.json({ success: ok });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Sales, cost, and profit/loss summary for a date range (dates are Thai local, UTC+7)
+router.get('/restaurant/owner/analytics', async (req, res) => {
+  try {
+    const from = req.query.from || '2000-01-01';
+    const to = req.query.to || '2100-01-01';
+
+    const salesRow = await dbAsync.get(
+      `SELECT COALESCE(SUM(total), 0) as sales, COUNT(*) as orderCount
+       FROM orders
+       WHERE status = 'paid' AND date(createdAt, '+7 hours') BETWEEN ? AND ?`,
+      [from, to]
+    );
+
+    const costRow = await dbAsync.get(
+      `SELECT COALESCE(SUM(amount), 0) as costs
+       FROM expenses
+       WHERE expense_date BETWEEN ? AND ?`,
+      [from, to]
+    );
+
+    const topItems = await dbAsync.all(
+      `SELECT mi.name, SUM(oi.quantity) as quantity, SUM(oi.quantity * oi.unit_price) as revenue
+       FROM order_items oi
+       JOIN orders o ON oi.order_id = o.id
+       JOIN menu_items mi ON oi.menu_item_id = mi.id
+       WHERE o.status = 'paid' AND date(o.createdAt, '+7 hours') BETWEEN ? AND ?
+       GROUP BY oi.menu_item_id
+       ORDER BY revenue DESC
+       LIMIT 10`,
+      [from, to]
+    );
+
+    const dailySales = await dbAsync.all(
+      `SELECT date(createdAt, '+7 hours') as day, SUM(total) as sales, COUNT(*) as orderCount
+       FROM orders
+       WHERE status = 'paid' AND date(createdAt, '+7 hours') BETWEEN ? AND ?
+       GROUP BY day
+       ORDER BY day ASC`,
+      [from, to]
+    );
+
+    const sales = salesRow.sales;
+    const costs = costRow.costs;
+
+    res.json({
+      success: true,
+      analytics: {
+        sales,
+        costs,
+        profit: sales - costs,
+        orderCount: salesRow.orderCount,
+        topItems,
+        dailySales
       }
     });
   } catch (error) {
