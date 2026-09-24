@@ -8,7 +8,7 @@ Deploy Auto Content Generator ไปยัง Render ได้อย่างง
 
 ### Click ปุ่มนี้เพื่อ Deploy:
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/entclick88/content)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/entclick88/pai-sapp)
 
 ---
 
