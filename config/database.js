@@ -109,6 +109,7 @@ function initializeDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       order_id TEXT UNIQUE NOT NULL,
       table_id INTEGER NOT NULL,
+      customer_name TEXT,
       status TEXT DEFAULT 'pending',
       total REAL NOT NULL,
       payment_status TEXT DEFAULT 'unpaid',
@@ -118,6 +119,8 @@ function initializeDatabase() {
       FOREIGN KEY(table_id) REFERENCES restaurant_tables(id)
     )
   `);
+  // Migration for databases created before customer_name existed
+  db.run(`ALTER TABLE orders ADD COLUMN customer_name TEXT`, () => {});
 
   // Restaurant System - Order Items
   db.run(`
@@ -132,6 +135,14 @@ function initializeDatabase() {
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(order_id) REFERENCES orders(id),
       FOREIGN KEY(menu_item_id) REFERENCES menu_items(id)
+    )
+  `);
+
+  // Restaurant System - Settings (key/value, e.g. PromptPay ID, shop name)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS restaurant_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
     )
   `);
 }

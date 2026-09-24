@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ปายแซ่บ - จัดการเมนู</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #d32f2f 0%, #ff6f00 100%);
+      color: white;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .header h1 { font-size: 22px; }
+
+    .back-link {
+      color: white;
+      text-decoration: none;
+      background: rgba(255,255,255,0.2);
+      border: 2px solid white;
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .back-link:hover { background: white; color: #d32f2f; }
+
+    .container {
+      max-width: 900px;
+      margin: 20px auto;
+      padding: 0 15px 60px;
+    }
+
+    .section {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .section h2 {
+      font-size: 18px;
+      margin-bottom: 15px;
+      color: #d32f2f;
+    }
+
+    .category-group { margin-bottom: 20px; }
+
+    .category-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #888;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      letter-spacing: 0.5px;
+    }
+
+    .menu-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .menu-row:last-child { border-bottom: none; }
+
+    .menu-row input[type="text"] {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .menu-row input[type="number"] {
+      width: 80px;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      text-align: right;
+    }
+
+    .menu-row.unavailable { opacity: 0.5; }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 46px;
+      height: 26px;
+      flex-shrink: 0;
+    }
+
+    .switch input { opacity: 0; width: 0; height: 0; }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #ccc;
+      transition: .3s;
+      border-radius: 26px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 20px; width: 20px;
+      left: 3px; bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider { background-color: #4caf50; }
+    input:checked + .slider:before { transform: translateX(20px); }
+
+    .save-hint {
+      font-size: 11px;
+      color: #999;
+      flex-shrink: 0;
+      width: 60px;
+    }
+
+    .add-form {
+      display: grid;
+      grid-template-columns: 2fr 1.5fr 1fr auto;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .add-form input, .add-form select {
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .btn {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 4px;
+      background: #d32f2f;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .btn:hover { background: #b71c1c; }
+
+    .settings-form {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+
+    .settings-form .field { flex: 1; min-width: 200px; }
+
+    .settings-form label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .settings-form input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .hint { font-size: 12px; color: #999; margin-top: 8px; }
+    .toast {
+      position: fixed;
+      bottom: 20px; left: 50%;
+      transform: translateX(-50%);
+      background: #333; color: white;
+      padding: 10px 20px; border-radius: 20px;
+      font-size: 14px; opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    .toast.show { opacity: 1; }
+
+    @media (max-width: 600px) {
+      .add-form { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🍽️ จัดการเมนู - ปายแซ่บ</h1>
+    <a href="admin-dashboard.html" class="back-link">← กลับไปหน้าออเดอร์</a>
+  </div>
+
+  <div class="container">
+    <div class="section">
+      <h2>💳 ตั้งค่า PromptPay</h2>
+      <div class="settings-form">
+        <div class="field">
+          <label>เบอร์พร้อมเพย์ / เลขบัตรประชาชน</label>
+          <input type="text" id="promptpayId" placeholder="เช่น 0812345678">
+        </div>
+        <div class="field">
+          <label>ชื่อร้าน (แสดงในระบบ)</label>
+          <input type="text" id="shopName" placeholder="ปายแซ่บ">
+        </div>
+        <button class="btn" onclick="saveSettings()">บันทึก</button>
+      </div>
+      <div class="hint">เลขนี้จะถูกใช้สร้าง QR code ให้ลูกค้าสแกนจ่ายเงินตอนออเดอร์เสร็จ</div>
+    </div>
+
+    <div class="section">
+      <h2>➕ เพิ่มเมนูใหม่</h2>
+      <div class="add-form">
+        <input type="text" id="newName" placeholder="ชื่อเมนู">
+        <input type="text" id="newCategory" placeholder="หมวดหมู่ (เช่น ส้มตำ)" list="categoryList">
+        <input type="number" id="newPrice" placeholder="ราคา">
+        <button class="btn" onclick="addMenuItem()">เพิ่ม</button>
+      </div>
+      <datalist id="categoryList"></datalist>
+    </div>
+
+    <div class="section">
+      <h2>📋 เมนูทั้งหมด</h2>
+      <div id="menuList">กำลังโหลด...</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let allItems = [];
+
+    async function loadSettings() {
+      const res = await fetch('/api/restaurant/settings');
+      const data = await res.json();
+      document.getElementById('promptpayId').value = data.settings.promptpayId || '';
+      document.getElementById('shopName').value = data.settings.shopName || '';
+    }
+
+    async function saveSettings() {
+      const promptpayId = document.getElementById('promptpayId').value.trim();
+      const shopName = document.getElementById('shopName').value.trim();
+      await fetch('/api/restaurant/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ promptpayId, shopName })
+      });
+      showToast('บันทึกการตั้งค่าแล้ว');
+    }
+
+    async function loadMenu() {
+      const res = await fetch('/api/restaurant/admin/menu');
+      const data = await res.json();
+      allItems = data.items || [];
+      renderMenu();
+    }
+
+    function renderMenu() {
+      const container = document.getElementById('menuList');
+      const categories = [...new Set(allItems.map(i => i.category))];
+      document.getElementById('categoryList').innerHTML = categories.map(c => `<option value="${c}">`).join('');
+
+      if (allItems.length === 0) {
+        container.innerHTML = '<p style="color:#999;">ยังไม่มีเมนู</p>';
+        return;
+      }
+
+      container.innerHTML = categories.map(cat => `
+        <div class="category-group">
+          <div class="category-title">${cat}</div>
+          ${allItems.filter(i => i.category === cat).map(item => `
+            <div class="menu-row ${item.available ? '' : 'unavailable'}" id="row-${item.id}">
+              <input type="text" value="${item.name}" onchange="updateItem(${item.id}, { name: this.value })">
+              <input type="number" value="${item.price}" onchange="updateItem(${item.id}, { price: Number(this.value) })">
+              <span class="save-hint">บาท</span>
+              <label class="switch" title="เปิด/ปิดขาย">
+                <input type="checkbox" ${item.available ? 'checked' : ''} onchange="toggleAvailable(${item.id}, this.checked)">
+                <span class="slider"></span>
+              </label>
+            </div>
+          `).join('')}
+        </div>
+      `).join('');
+    }
+
+    async function updateItem(id, fields) {
+      await fetch(`/api/restaurant/admin/menu/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fields)
+      });
+      const item = allItems.find(i => i.id === id);
+      Object.assign(item, fields);
+      showToast('บันทึกแล้ว');
+    }
+
+    async function toggleAvailable(id, available) {
+      await updateItem(id, { available });
+      const item = allItems.find(i => i.id === id);
+      document.getElementById(`row-${id}`).classList.toggle('unavailable', !available);
+      showToast(available ? `เปิดขาย "${item.name}" แล้ว` : `ปิดขาย "${item.name}" แล้ว`);
+    }
+
+    async function addMenuItem() {
+      const name = document.getElementById('newName').value.trim();
+      const category = document.getElementById('newCategory').value.trim();
+      const price = Number(document.getElementById('newPrice').value);
+
+      if (!name || !category || !price) {
+        alert('กรุณากรอกชื่อ หมวดหมู่ และราคาให้ครบ');
+        return;
+      }
+
+      await fetch('/api/restaurant/admin/menu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, category, price })
+      });
+
+      document.getElementById('newName').value = '';
+      document.getElementById('newCategory').value = '';
+      document.getElementById('newPrice').value = '';
+      showToast(`เพิ่มเมนู "${name}" แล้ว`);
+      loadMenu();
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 1800);
+    }
+
+    loadSettings();
+    loadMenu();
+  </script>
+</body>
+</html>

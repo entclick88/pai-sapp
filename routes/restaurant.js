@@ -58,6 +58,25 @@ router.get('/restaurant/menu/:category', async (req, res) => {
   }
 });
 
+// Get public shop settings (PromptPay ID, shop name) for building payment QR codes
+router.get('/restaurant/settings', async (req, res) => {
+  try {
+    const rows = await dbAsync.all('SELECT key, value FROM restaurant_settings');
+    const settings = {};
+    rows.forEach(r => { settings[r.key] = r.value; });
+
+    res.json({
+      success: true,
+      settings: {
+        promptpayId: settings.promptpay_id || '',
+        shopName: settings.shop_name || 'ปายแซ่บ'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Create new order
 router.post('/restaurant/order', async (req, res) => {
   try {
@@ -150,11 +169,52 @@ router.post('/restaurant/order/:orderId/items', async (req, res) => {
   }
 });
 
+// Confirm order: customer signs with their name and submits it to the shop
+router.put('/restaurant/order/:orderId/confirm', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { customerName } = req.body;
+
+    if (!customerName || !customerName.trim()) {
+      return res.status(400).json({ error: 'กรุณากรอกชื่อผู้สั่ง' });
+    }
+
+    const order = await dbAsync.get(
+      'SELECT * FROM orders WHERE order_id = ?',
+      [orderId]
+    );
+
+    if (!order) {
+      return res.status(404).json({ error: 'ไม่พบออเดอร์นี้' });
+    }
+
+    const itemCount = await dbAsync.get(
+      'SELECT COUNT(*) as count FROM order_items WHERE order_id = ?',
+      [order.id]
+    );
+
+    if (!itemCount || itemCount.count === 0) {
+      return res.status(400).json({ error: 'กรุณาเลือกอาหารอย่างน้อย 1 รายการ' });
+    }
+
+    await dbAsync.run(
+      'UPDATE orders SET customer_name = ?, status = ? WHERE order_id = ?',
+      [customerName.trim(), 'confirmed', orderId]
+    );
+
+    res.json({ success: true, message: 'ส่งออเดอร์ให้ร้านแล้ว' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get order details
 router.get('/restaurant/order/:orderId', async (req, res) => {
   try {
     const order = await dbAsync.get(
-      'SELECT * FROM orders WHERE order_id = ?',
+      `SELECT o.*, t.table_number FROM orders o
+       JOIN restaurant_tables t ON o.table_id = t.id
+       WHERE o.order_id = ?`,
       [req.params.orderId]
     );
 
@@ -268,7 +328,7 @@ router.post('/restaurant/order/:orderId/checkout', async (req, res) => {
   }
 });
 
-// Mark order as paid
+// Customer reports that they have transferred payment (awaiting shop confirmation)
 router.post('/restaurant/order/:orderId/pay', async (req, res) => {
   try {
     const order = await dbAsync.get(
@@ -281,13 +341,13 @@ router.post('/restaurant/order/:orderId/pay', async (req, res) => {
     }
 
     await dbAsync.run(
-      'UPDATE orders SET payment_status = ?, status = ? WHERE order_id = ?',
-      ['paid', 'confirmed', req.params.orderId]
+      'UPDATE orders SET payment_status = ? WHERE order_id = ?',
+      ['transferred', req.params.orderId]
     );
 
     res.json({
       success: true,
-      message: 'ได้รับการชำระเงินแล้ว เรากำลังเตรียมอาหารของคุณ'
+      message: 'แจ้งการชำระเงินแล้ว รอร้านยืนยัน'
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -303,7 +363,7 @@ router.get('/restaurant/admin/orders', async (req, res) => {
       `SELECT o.*, t.table_number
        FROM orders o
        JOIN restaurant_tables t ON o.table_id = t.id
-       WHERE o.status IN ('pending', 'confirmed')
+       WHERE o.status IN ('confirmed', 'preparing', 'completed')
        ORDER BY o.createdAt DESC`
     );
 
@@ -329,15 +389,28 @@ router.put('/restaurant/admin/order/:orderId/status', async (req, res) => {
   try {
     const { status } = req.body;
 
-    const validStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'served', 'completed', 'cancelled'];
+    const validStatuses = ['pending', 'confirmed', 'preparing', 'completed', 'paid', 'cancelled'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ error: 'สถานะไม่ถูกต้อง' });
     }
 
-    await dbAsync.run(
-      'UPDATE orders SET status = ?, completedAt = ? WHERE order_id = ?',
-      [status, status === 'completed' ? new Date().toISOString() : null, req.params.orderId]
-    );
+    const params = [status];
+    let sql = 'UPDATE orders SET status = ?';
+
+    if (status === 'completed') {
+      sql += ', completedAt = ?';
+      params.push(new Date().toISOString());
+    }
+
+    if (status === 'paid') {
+      sql += ', payment_status = ?';
+      params.push('paid');
+    }
+
+    sql += ' WHERE order_id = ?';
+    params.push(req.params.orderId);
+
+    await dbAsync.run(sql, params);
 
     res.json({
       success: true,
@@ -401,18 +474,58 @@ router.post('/restaurant/admin/menu', async (req, res) => {
   }
 });
 
-// Update menu item
+// Update menu item (partial update - only fields provided are changed)
 router.put('/restaurant/admin/menu/:id', async (req, res) => {
   try {
-    const { name, category, price, description, imageUrl, available } = req.body;
+    const existing = await dbAsync.get('SELECT * FROM menu_items WHERE id = ?', [req.params.id]);
+    if (!existing) {
+      return res.status(404).json({ error: 'ไม่พบเมนูนี้' });
+    }
+
+    const {
+      name = existing.name,
+      category = existing.category,
+      price = existing.price,
+      description = existing.description,
+      imageUrl = existing.image_url,
+      available = existing.available
+    } = req.body;
 
     await dbAsync.run(
       `UPDATE menu_items SET name = ?, category = ?, price = ?, description = ?, image_url = ?, available = ?
        WHERE id = ?`,
-      [name, category, price, description, imageUrl, available, req.params.id]
+      [name, category, price, description, imageUrl, available ? 1 : 0, req.params.id]
     );
 
     res.json({ success: true, message: 'อัปเดตเมนูแล้ว' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ===== ADMIN SETTINGS (PromptPay ID, shop name) =====
+
+router.put('/restaurant/admin/settings', async (req, res) => {
+  try {
+    const { promptpayId, shopName } = req.body;
+
+    if (promptpayId !== undefined) {
+      await dbAsync.run(
+        `INSERT INTO restaurant_settings (key, value) VALUES ('promptpay_id', ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        [promptpayId]
+      );
+    }
+
+    if (shopName !== undefined) {
+      await dbAsync.run(
+        `INSERT INTO restaurant_settings (key, value) VALUES ('shop_name', ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        [shopName]
+      );
+    }
+
+    res.json({ success: true, message: 'บันทึกการตั้งค่าแล้ว' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

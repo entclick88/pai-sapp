@@ -4,9 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ปายแซ่บ - สั่งอาหาร</title>
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js"></script>
   <style>
     * {
       margin: 0;
@@ -481,15 +478,16 @@
   <div class="modal" id="checkoutModal">
     <div class="modal-content">
       <div class="modal-header">
-        <span>ยืนยันการสั่ง</span>
+        <span>ยืนยันการสั่งอาหาร</span>
         <button class="modal-close" onclick="closeCheckoutModal()">×</button>
       </div>
       <div id="checkoutSummary"></div>
-      <div class="payment-options">
-        <div class="payment-option" onclick="selectPayment('order_more')">สั่งเพิ่มเติม</div>
-        <div class="payment-option" onclick="selectPayment('pay')">จ่ายเงิน</div>
+      <label style="display: block; margin-bottom: 5px; font-weight: 600;">ชื่อผู้สั่ง (สำหรับเรียกรับอาหาร)</label>
+      <input type="text" id="customerNameInput" class="notes-input" style="margin: 0 0 15px;" placeholder="กรอกชื่อของคุณ" autocomplete="name">
+      <div class="modal-buttons">
+        <button class="cancel-btn" onclick="closeCheckoutModal()">สั่งเพิ่มเติม</button>
+        <button class="confirm-btn" id="submitOrderBtn" onclick="submitOrder()">ส่งออเดอร์ให้ร้าน</button>
       </div>
-      <div id="paymentUI"></div>
     </div>
   </div>
 
@@ -500,7 +498,6 @@
     let allMenuItems = [];
     let categories = [];
     let currentItemId = null;
-    let selectedPaymentMethod = null;
 
     async function init() {
       const params = new URLSearchParams(window.location.search);
@@ -553,7 +550,7 @@
 
       grid.innerHTML = items.map(item => `
         <div class="menu-item" onclick="openItemModal(${item.id}, '${item.name}', ${item.price}, '${item.description || ''}')">
-          <div class="menu-item-image">🍜</div>
+          <div class="menu-item-image">🥗</div>
           <div class="menu-item-info">
             <div class="menu-item-name">${item.name}</div>
             <div class="menu-item-price">฿${item.price}</div>
@@ -694,8 +691,7 @@
       `;
 
       document.getElementById('checkoutSummary').innerHTML = checkoutHTML;
-      document.getElementById('paymentUI').innerHTML = '';
-      selectedPaymentMethod = null;
+      document.getElementById('customerNameInput').value = '';
       document.getElementById('checkoutModal').classList.add('show');
     }
 
@@ -703,61 +699,36 @@
       document.getElementById('checkoutModal').classList.remove('show');
     }
 
-    function selectPayment(method) {
-      selectedPaymentMethod = method;
-      document.querySelectorAll('.payment-option').forEach(el => {
-        el.classList.toggle('selected', el.textContent.includes(method === 'pay' ? 'จ่ายเงิน' : 'สั่งเพิ่มเติม'));
-      });
-
-      const paymentUI = document.getElementById('paymentUI');
-
-      if (method === 'pay') {
-        paymentUI.innerHTML = `
-          <div style="text-align: center; margin-top: 20px;">
-            <p style="margin-bottom: 15px; color: #666;">สแกน QR code PromptPay เพื่อชำระเงิน</p>
-            <div class="qr-code-display" style="background: #f5f5f5; padding: 20px; border-radius: 8px;">
-              <div style="width: 200px; height: 200px; margin: 0 auto; background: linear-gradient(45deg, #ff6f00, #d32f2f); display: flex; align-items: center; justify-content: center; border-radius: 8px;">
-                <div style="color: white; font-size: 60px;">📱</div>
-              </div>
-            </div>
-            <p style="margin-top: 15px; font-size: 14px; color: #999;">QR Code PromptPay ของร้าน</p>
-            <button class="checkout-btn" style="margin-top: 20px;" onclick="completePayment()">ชำระเงินเรียบร้อยแล้ว</button>
-          </div>
-        `;
-      } else {
-        paymentUI.innerHTML = `
-          <div style="text-align: center; margin-top: 20px;">
-            <p style="color: #666; margin-bottom: 15px;">ขอบคุณ เรารับออเดอร์ของคุณแล้ว</p>
-            <p style="font-size: 14px; color: #999;">สามารถสั่งเพิ่มเติมได้โดยกลับไปที่เมนู</p>
-            <button class="checkout-btn" style="margin-top: 20px;" onclick="completeOrder()">กลับไปเมนู</button>
-          </div>
-        `;
+    async function submitOrder() {
+      const customerName = document.getElementById('customerNameInput').value.trim();
+      if (!customerName) {
+        alert('กรุณากรอกชื่อผู้สั่งก่อนยืนยัน');
+        return;
       }
-    }
 
-    async function completePayment() {
+      const btn = document.getElementById('submitOrderBtn');
+      btn.disabled = true;
+      btn.textContent = 'กำลังส่ง...';
+
       try {
-        await fetch(`/api/restaurant/order/${currentOrderId}/pay`, {
-          method: 'POST'
+        const res = await fetch(`/api/restaurant/order/${currentOrderId}/confirm`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customerName })
         });
-        alert('ชำระเงินเรียบร้อยแล้ว! เรากำลังเตรียมอาหารของคุณ');
-        completeOrder();
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || 'เกิดข้อผิดพลาด');
+
+        window.location.href = `order-status.html?orderId=${encodeURIComponent(currentOrderId)}`;
       } catch (error) {
         alert('เกิดข้อผิดพลาด: ' + error.message);
+        btn.disabled = false;
+        btn.textContent = 'ส่งออเดอร์ให้ร้าน';
       }
-    }
-
-    function completeOrder() {
-      closeCheckoutModal();
-      cart = {};
-      currentOrderId = null;
-      updateCartDisplay();
-      window.location.href = window.location.pathname + window.location.search;
     }
 
     init();
   </script>
-  <!-- Firebase Configuration -->
-  <script src="firebase-config.js"></script>
 </body>
 </html>

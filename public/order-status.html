@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ปายแซ่บ - สถานะออเดอร์</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      min-height: 100vh;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #d32f2f 0%, #ff6f00 100%);
+      color: white;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .header h1 { font-size: 26px; margin-bottom: 4px; }
+    .header p { font-size: 12px; opacity: 0.9; font-style: italic; }
+
+    .container {
+      max-width: 480px;
+      margin: 20px auto;
+      padding: 0 15px 40px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      padding: 20px;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    .order-meta {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 10px;
+    }
+
+    .order-meta strong { color: #d32f2f; }
+
+    .status-icon { font-size: 56px; margin-bottom: 10px; }
+
+    .status-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .status-desc {
+      font-size: 14px;
+      color: #777;
+      line-height: 1.5;
+    }
+
+    .steps {
+      display: flex;
+      justify-content: space-between;
+      margin: 20px 0 5px;
+      position: relative;
+    }
+
+    .steps::before {
+      content: '';
+      position: absolute;
+      top: 14px;
+      left: 10%;
+      right: 10%;
+      height: 3px;
+      background: #eee;
+      z-index: 0;
+    }
+
+    .step {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      flex: 1;
+    }
+
+    .step-dot {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #eee;
+      color: #999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 6px;
+      font-weight: 700;
+      font-size: 13px;
+      transition: all 0.3s;
+    }
+
+    .step.done .step-dot { background: #4caf50; color: white; }
+    .step.active .step-dot { background: #d32f2f; color: white; }
+    .step-label { font-size: 11px; color: #999; }
+    .step.done .step-label, .step.active .step-label { color: #333; font-weight: 600; }
+
+    .items-list { text-align: left; margin: 15px 0; }
+
+    .item-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 14px;
+    }
+
+    .item-row:last-child { border-bottom: none; }
+
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 20px;
+      font-weight: 700;
+      padding-top: 12px;
+      margin-top: 8px;
+      border-top: 2px solid #d32f2f;
+      color: #d32f2f;
+    }
+
+    .qr-wrap {
+      background: #fafafa;
+      border-radius: 10px;
+      padding: 20px;
+      margin: 15px 0;
+    }
+
+    #qrcodeBox { display: flex; justify-content: center; margin: 10px 0; }
+
+    .pay-btn {
+      width: 100%;
+      padding: 14px;
+      background: #d32f2f;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    .pay-btn:hover { background: #b71c1c; }
+    .pay-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+    .thankyou-icon { font-size: 64px; margin-bottom: 10px; }
+
+    .loading { padding: 40px 20px; color: #999; text-align: center; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .pulsing { animation: pulse 1.5s ease-in-out infinite; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🌶️ ปายแซ่บ</h1>
+    <p>คิดถึงความแซ่บ นัว คิดถึงเรา</p>
+  </div>
+
+  <div class="container">
+    <div id="content" class="loading">กำลังโหลดสถานะออเดอร์...</div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get('orderId');
+    let promptpaySettings = null;
+    let lastStatus = null;
+    let paidClicked = false;
+
+    if (!orderId) {
+      document.getElementById('content').innerHTML = '<div class="card">ไม่พบรหัสออเดอร์</div>';
+    } else {
+      init();
+      setInterval(loadOrder, 3000);
+    }
+
+    async function init() {
+      try {
+        const res = await fetch('/api/restaurant/settings');
+        const data = await res.json();
+        promptpaySettings = data.settings;
+      } catch (e) {
+        promptpaySettings = { promptpayId: '', shopName: 'ปายแซ่บ' };
+      }
+      loadOrder();
+    }
+
+    async function loadOrder() {
+      try {
+        const res = await fetch(`/api/restaurant/order/${encodeURIComponent(orderId)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'ไม่พบออเดอร์นี้');
+        render(data.order);
+      } catch (error) {
+        document.getElementById('content').innerHTML = `<div class="card">${error.message}</div>`;
+      }
+    }
+
+    function stepsHtml(status) {
+      const order = ['confirmed', 'preparing', 'completed'];
+      const labels = { confirmed: 'รับออเดอร์', preparing: 'กำลังทำ', completed: 'เสร็จแล้ว' };
+      const currentIdx = order.indexOf(status);
+
+      return `
+        <div class="steps">
+          ${order.map((s, idx) => `
+            <div class="step ${idx < currentIdx ? 'done' : idx === currentIdx ? 'active' : ''}">
+              <div class="step-dot">${idx < currentIdx ? '✓' : idx + 1}</div>
+              <div class="step-label">${labels[s]}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function render(order) {
+      const content = document.getElementById('content');
+      const itemsHtml = `
+        <div class="items-list">
+          ${order.items.map(i => `
+            <div class="item-row">
+              <span>${i.name} × ${i.quantity}</span>
+              <span>฿${(i.quantity * i.unit_price).toFixed(2)}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+
+      if (order.status === 'cancelled') {
+        content.innerHTML = `
+          <div class="card">
+            <div class="status-icon">😔</div>
+            <div class="status-title">ออเดอร์ถูกยกเลิก</div>
+            <div class="status-desc">กรุณาติดต่อพนักงานที่โต๊ะ ${order.table_number}</div>
+          </div>
+        `;
+        return;
+      }
+
+      if (order.status === 'paid' || order.payment_status === 'paid') {
+        content.innerHTML = `
+          <div class="card">
+            <div class="thankyou-icon">🎉</div>
+            <div class="status-title">ขอบคุณค่ะ/ครับ!</div>
+            <div class="status-desc">ชำระเงินเรียบร้อยแล้ว หวังว่าจะอร่อยนะคะ<br>แล้วมาอุดหนุน ปายแซ่บ กันใหม่นะคะ 🌶️</div>
+          </div>
+        `;
+        return;
+      }
+
+      if (order.status === 'completed') {
+        content.innerHTML = `
+          <div class="card">
+            <div class="order-meta">โต๊ะที่ <strong>${order.table_number}</strong> · คุณ${order.customer_name || ''}</div>
+            ${stepsHtml('completed')}
+            <div class="status-icon">✅</div>
+            <div class="status-title">อาหารเสร็จแล้ว!</div>
+            <div class="status-desc">กรุณาชำระเงินตามยอดด้านล่าง</div>
+            ${itemsHtml}
+            <div class="total-row"><span>ยอดชำระ</span><span>฿${Number(order.total).toFixed(2)}</span></div>
+            <div class="qr-wrap">
+              <div style="font-size: 13px; color: #666; margin-bottom: 5px;">สแกนจ่ายผ่าน PromptPay</div>
+              <div id="qrcodeBox"></div>
+            </div>
+            <button class="pay-btn" id="payBtn" onclick="markPaid()" ${order.payment_status === 'transferred' ? 'disabled' : ''}>
+              ${order.payment_status === 'transferred' ? 'รอร้านยืนยันการชำระเงิน...' : 'ฉันโอนเงินแล้ว'}
+            </button>
+          </div>
+        `;
+        renderQR(order.total);
+        return;
+      }
+
+      // pending / confirmed / preparing
+      const desc = order.status === 'preparing'
+        ? 'เชฟกำลังปรุงอาหารของคุณอยู่ รอสักครู่นะคะ 👩‍🍳'
+        : 'ร้านได้รับออเดอร์ของคุณแล้ว กำลังจะเริ่มทำเร็วๆ นี้';
+
+      content.innerHTML = `
+        <div class="card">
+          <div class="order-meta">โต๊ะที่ <strong>${order.table_number}</strong> · คุณ${order.customer_name || ''}</div>
+          ${stepsHtml(order.status === 'preparing' ? 'preparing' : 'confirmed')}
+          <div class="status-icon pulsing">🍳</div>
+          <div class="status-title">${order.status === 'preparing' ? 'กำลังเตรียมอาหาร' : 'ส่งออเดอร์แล้ว'}</div>
+          <div class="status-desc">${desc}</div>
+          ${itemsHtml}
+          <div class="total-row"><span>รวม</span><span>฿${Number(order.total).toFixed(2)}</span></div>
+        </div>
+      `;
+    }
+
+    function renderQR(amount) {
+      const box = document.getElementById('qrcodeBox');
+      if (!box) return;
+      box.innerHTML = '';
+
+      if (!promptpaySettings || !promptpaySettings.promptpayId) {
+        box.innerHTML = '<div style="font-size:13px;color:#999;">ร้านยังไม่ได้ตั้งค่าเลข PromptPay<br>กรุณาชำระเงินสดกับพนักงาน</div>';
+        return;
+      }
+
+      const payload = generatePromptPayPayload(promptpaySettings.promptpayId, amount);
+      new QRCode(box, { text: payload, width: 200, height: 200 });
+    }
+
+    async function markPaid() {
+      const btn = document.getElementById('payBtn');
+      btn.disabled = true;
+      btn.textContent = 'กำลังแจ้ง...';
+      try {
+        await fetch(`/api/restaurant/order/${encodeURIComponent(orderId)}/pay`, { method: 'POST' });
+        loadOrder();
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = 'ฉันโอนเงินแล้ว';
+      }
+    }
+
+    // ===== PromptPay QR payload (EMV QR Code spec) =====
+    function tlv(id, value) {
+      const len = String(value.length).padStart(2, '0');
+      return id + len + value;
+    }
+
+    function crc16ccitt(str) {
+      let crc = 0xFFFF;
+      for (let c = 0; c < str.length; c++) {
+        crc ^= str.charCodeAt(c) << 8;
+        for (let i = 0; i < 8; i++) {
+          crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF;
+        }
+      }
+      return crc.toString(16).toUpperCase().padStart(4, '0');
+    }
+
+    function generatePromptPayPayload(targetId, amount) {
+      let target = String(targetId).replace(/[^0-9]/g, '');
+      let accTag, accValue;
+      if (target.length >= 13) {
+        accTag = '02'; // citizen ID / tax ID
+        accValue = target.substring(0, 13);
+      } else {
+        target = target.replace(/^0/, '66');
+        accValue = target.padStart(13, '0');
+        accTag = '01'; // mobile number
+      }
+      const merchantInfo = tlv('00', 'A000000677010111') + tlv(accTag, accValue);
+      let payload = '';
+      payload += tlv('00', '01');
+      payload += tlv('01', amount ? '12' : '11');
+      payload += tlv('29', merchantInfo);
+      payload += tlv('53', '764');
+      if (amount) payload += tlv('54', Number(amount).toFixed(2));
+      payload += tlv('58', 'TH');
+      payload += '6304';
+      return payload + crc16ccitt(payload);
+    }
+  </script>
+</body>
+</html>

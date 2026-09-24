@@ -4,9 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ปายแซ่บ - ระบบเชฟ</title>
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     * {
       margin: 0;
@@ -144,9 +142,34 @@
       color: #0f5132;
     }
 
-    .status-served {
-      background: #d1e7dd;
-      color: #0f5132;
+    .status-completed {
+      background: #ffe0b2;
+      color: #a15400;
+    }
+
+    .customer-name {
+      font-size: 13px;
+      color: #555;
+      margin-top: 2px;
+    }
+
+    .payment-box {
+      text-align: center;
+      background: #fff8e1;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .payment-box img, .payment-box > div {
+      margin: 0 auto;
+    }
+
+    .payment-note {
+      font-size: 12px;
+      color: #a15400;
+      margin-top: 6px;
+      font-weight: 600;
     }
 
     .order-content {
@@ -303,22 +326,25 @@
       <h1>🌶️ ปายแซ่บ - ระบบเชฟ</h1>
       <div class="header-subtitle">กำลังดูออเดอร์ที่กำลังทำอยู่</div>
     </div>
-    <button class="refresh-btn" onclick="loadOrders()">🔄 รีเฟรช</button>
+    <div style="display: flex; gap: 10px;">
+      <a href="admin-menu.html" class="refresh-btn" style="text-decoration: none; display: inline-block;">🍽️ จัดการเมนู</a>
+      <button class="refresh-btn" onclick="loadOrders()">🔄 รีเฟรช</button>
+    </div>
   </div>
 
   <div class="container">
     <div class="stats">
       <div class="stat-card">
         <div class="stat-value" id="countPending">0</div>
-        <div class="stat-label">รอดำเนินการ</div>
+        <div class="stat-label">ออเดอร์ใหม่</div>
       </div>
       <div class="stat-card">
         <div class="stat-value" id="countPreparing">0</div>
-        <div class="stat-label">กำลังเตรียม</div>
+        <div class="stat-label">กำลังทำ</div>
       </div>
       <div class="stat-card">
         <div class="stat-value" id="countReady">0</div>
-        <div class="stat-label">พร้อมเสิร์ฟ</div>
+        <div class="stat-label">รอชำระเงิน</div>
       </div>
       <div class="stat-card">
         <div class="stat-value" id="countTotal">0</div>
@@ -336,9 +362,16 @@
 
   <script>
     let allOrders = [];
+    let promptpaySettings = null;
 
     async function loadOrders() {
       try {
+        if (!promptpaySettings) {
+          const sRes = await fetch('/api/restaurant/settings');
+          const sData = await sRes.json();
+          promptpaySettings = sData.settings;
+        }
+
         const res = await fetch('/api/restaurant/admin/orders');
         const data = await res.json();
         allOrders = data.orders || [];
@@ -350,9 +383,9 @@
     }
 
     function updateStats() {
-      const pending = allOrders.filter(o => o.status === 'pending').length;
+      const pending = allOrders.filter(o => o.status === 'confirmed').length;
       const preparing = allOrders.filter(o => o.status === 'preparing').length;
-      const ready = allOrders.filter(o => o.status === 'ready').length;
+      const ready = allOrders.filter(o => o.status === 'completed').length;
 
       document.getElementById('countPending').textContent = pending;
       document.getElementById('countPreparing').textContent = preparing;
@@ -373,8 +406,8 @@
         return;
       }
 
-      // Sort by status priority: pending -> confirmed -> preparing -> ready
-      const statusPriority = { 'pending': 0, 'confirmed': 1, 'preparing': 2, 'ready': 3 };
+      // Sort by status priority: confirmed -> preparing -> completed
+      const statusPriority = { 'confirmed': 0, 'preparing': 1, 'completed': 2 };
       const sorted = [...allOrders].sort((a, b) => {
         const priorityDiff = (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99);
         if (priorityDiff !== 0) return priorityDiff;
@@ -382,6 +415,23 @@
       });
 
       container.innerHTML = sorted.map(order => renderOrderCard(order)).join('');
+      renderPaymentQRs(sorted);
+    }
+
+    function renderPaymentQRs(orders) {
+      orders
+        .filter(o => o.status === 'completed' && o.payment_status !== 'paid')
+        .forEach(o => {
+          const box = document.getElementById(`qr-${o.id}`);
+          if (!box) return;
+          box.innerHTML = '';
+          if (!promptpaySettings || !promptpaySettings.promptpayId) {
+            box.innerHTML = '<div style="font-size:12px;color:#999;">ยังไม่ได้ตั้งค่า PromptPay</div>';
+            return;
+          }
+          const payload = generatePromptPayPayload(promptpaySettings.promptpayId, o.total);
+          new QRCode(box, { text: payload, width: 140, height: 140 });
+        });
     }
 
     function renderOrderCard(order) {
@@ -391,12 +441,16 @@
       const diffMinutes = Math.floor((now - createdTime) / 60000);
       const timeText = diffMinutes < 1 ? 'เพิ่งเดี๋ยว' : `${diffMinutes} นาทีที่แล้ว`;
 
+      const isCompleted = order.status === 'completed';
+      const isPaid = order.payment_status === 'paid';
+
       return `
         <div class="order-card">
           <div class="order-header">
             <div>
               <div class="order-table">โต๊ะที่ ${order.table_number}</div>
               <div class="order-id">${order.order_id}</div>
+              ${order.customer_name ? `<div class="customer-name">👤 ${order.customer_name}</div>` : ''}
             </div>
             <span class="order-status ${statusClass}">${getStatusLabel(order.status)}</span>
           </div>
@@ -421,18 +475,22 @@
 
             <div class="timestamp">สั่งมา ${timeText}</div>
 
+            ${isCompleted ? `
+              <div class="payment-box">
+                <div id="qr-${order.id}"></div>
+                <div class="payment-note">${isPaid ? '✅ ชำระเงินแล้ว' : order.payment_status === 'transferred' ? 'ลูกค้าแจ้งโอนเงินแล้ว รอตรวจสอบ' : 'ให้ลูกค้าสแกนจ่าย หรือชำระเงินสด'}</div>
+              </div>
+            ` : ''}
+
             <div class="order-actions">
-              ${order.status === 'pending' ? `
-                <button class="action-btn primary" onclick="updateOrderStatus('${order.order_id}', 'confirmed')">ยืนยันออเดอร์</button>
-                <button class="action-btn secondary" onclick="updateOrderStatus('${order.order_id}', 'preparing')">เริ่มเตรียม</button>
-              ` : order.status === 'confirmed' ? `
-                <button class="action-btn primary" onclick="updateOrderStatus('${order.order_id}', 'preparing')">เริ่มเตรียม</button>
+              ${order.status === 'confirmed' ? `
+                <button class="action-btn primary" onclick="updateOrderStatus('${order.order_id}', 'preparing')">เริ่มทำ</button>
                 <button class="action-btn secondary" onclick="updateOrderStatus('${order.order_id}', 'cancelled')">ยกเลิก</button>
               ` : order.status === 'preparing' ? `
-                <button class="action-btn primary" onclick="updateOrderStatus('${order.order_id}', 'ready')">พร้อมเสิร์ฟ</button>
+                <button class="action-btn primary" onclick="updateOrderStatus('${order.order_id}', 'completed')">เสร็จสิ้น คำนวณราคา</button>
                 <button class="action-btn secondary" onclick="updateOrderStatus('${order.order_id}', 'cancelled')">ยกเลิก</button>
-              ` : order.status === 'ready' ? `
-                <button class="action-btn primary" onclick="updateOrderStatus('${order.order_id}', 'served')">ส่งแล้ว</button>
+              ` : isCompleted && !isPaid ? `
+                <button class="action-btn primary" style="grid-column: 1 / -1;" onclick="updateOrderStatus('${order.order_id}', 'paid')">✓ ยืนยันรับเงินแล้ว</button>
               ` : ''}
             </div>
           </div>
@@ -442,15 +500,53 @@
 
     function getStatusLabel(status) {
       const labels = {
-        'pending': 'รอยืนยัน',
-        'confirmed': 'ยืนยันแล้ว',
-        'preparing': 'กำลังเตรียม',
-        'ready': 'พร้อมเสิร์ฟ',
-        'served': 'ส่งแล้ว',
-        'completed': 'เสร็จสิ้น',
+        'confirmed': 'ออเดอร์ใหม่',
+        'preparing': 'กำลังทำ',
+        'completed': 'รอชำระเงิน',
+        'paid': 'ชำระเงินแล้ว',
         'cancelled': 'ยกเลิก'
       };
       return labels[status] || status;
+    }
+
+    // ===== PromptPay QR payload (EMV QR Code spec) =====
+    function tlv(id, value) {
+      const len = String(value.length).padStart(2, '0');
+      return id + len + value;
+    }
+
+    function crc16ccitt(str) {
+      let crc = 0xFFFF;
+      for (let c = 0; c < str.length; c++) {
+        crc ^= str.charCodeAt(c) << 8;
+        for (let i = 0; i < 8; i++) {
+          crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF;
+        }
+      }
+      return crc.toString(16).toUpperCase().padStart(4, '0');
+    }
+
+    function generatePromptPayPayload(targetId, amount) {
+      let target = String(targetId).replace(/[^0-9]/g, '');
+      let accTag, accValue;
+      if (target.length >= 13) {
+        accTag = '02';
+        accValue = target.substring(0, 13);
+      } else {
+        target = target.replace(/^0/, '66');
+        accValue = target.padStart(13, '0');
+        accTag = '01';
+      }
+      const merchantInfo = tlv('00', 'A000000677010111') + tlv(accTag, accValue);
+      let payload = '';
+      payload += tlv('00', '01');
+      payload += tlv('01', amount ? '12' : '11');
+      payload += tlv('29', merchantInfo);
+      payload += tlv('53', '764');
+      if (amount) payload += tlv('54', Number(amount).toFixed(2));
+      payload += tlv('58', 'TH');
+      payload += '6304';
+      return payload + crc16ccitt(payload);
     }
 
     async function updateOrderStatus(orderId, status) {
@@ -489,7 +585,5 @@
     loadOrders();
     setInterval(loadOrders, 5000);
   </script>
-  <!-- Firebase Configuration -->
-  <script src="firebase-config.js"></script>
 </body>
 </html>
