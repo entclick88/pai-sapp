@@ -172,6 +172,13 @@
       font-weight: 600;
     }
 
+    .slip-thumb {
+      max-width: 140px;
+      max-height: 140px;
+      border-radius: 6px;
+      border: 2px solid #ffb74d;
+    }
+
     .order-content {
       padding: 15px;
     }
@@ -561,8 +568,10 @@
 
             ${isCompleted ? `
               <div class="payment-box">
-                <div id="qr-${order.id}"></div>
-                <div class="payment-note">${isPaid ? '✅ ชำระเงินแล้ว' : order.payment_status === 'transferred' ? 'ลูกค้าแจ้งโอนเงินแล้ว รอตรวจสอบ' : 'ให้ลูกค้าสแกนจ่าย หรือชำระเงินสด'}</div>
+                ${order.payment_slip_url
+                  ? `<a href="${order.payment_slip_url}" target="_blank"><img src="${order.payment_slip_url}" class="slip-thumb" alt="สลิปการโอนเงิน"></a>`
+                  : `<div id="qr-${order.id}"></div>`}
+                <div class="payment-note">${isPaid ? '✅ ชำระเงินแล้ว' : order.payment_status === 'transferred' ? 'ลูกค้าแจ้งโอนเงินแล้ว รอตรวจสอบ (แตะรูปเพื่อดูสลิปเต็ม)' : 'ให้ลูกค้าสแกนจ่าย หรือชำระเงินสด'}</div>
               </div>
             ` : ''}
 

@@ -121,14 +121,16 @@ function initializeDatabase() {
       status TEXT DEFAULT 'pending',
       total REAL NOT NULL,
       payment_status TEXT DEFAULT 'unpaid',
+      payment_slip_url TEXT,
       device_id TEXT,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       completedAt DATETIME,
       FOREIGN KEY(table_id) REFERENCES restaurant_tables(id)
     )
   `);
-  // Migration for databases created before customer_name existed
+  // Migrations for databases created before these columns existed
   db.run(`ALTER TABLE orders ADD COLUMN customer_name TEXT`, () => {});
+  db.run(`ALTER TABLE orders ADD COLUMN payment_slip_url TEXT`, () => {});
 
   // Restaurant System - Order Items
   db.run(`

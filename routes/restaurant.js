@@ -17,6 +17,18 @@ const upload = multer({
   fileFilter: (req, file, cb) => cb(null, /^image\//.test(file.mimetype))
 });
 
+const uploadSlip = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadsDir),
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname) || '.jpg';
+      cb(null, `slip-${req.params.orderId}-${Date.now()}${ext}`);
+    }
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => cb(null, /^image\//.test(file.mimetype))
+});
+
 // Generate unique QR code identifier
 function generateQRCode() {
   return crypto.randomBytes(8).toString('hex');
@@ -378,8 +390,9 @@ router.post('/restaurant/order/:orderId/checkout', async (req, res) => {
   }
 });
 
-// Customer reports that they have transferred payment (awaiting shop confirmation)
-router.post('/restaurant/order/:orderId/pay', async (req, res) => {
+// Customer reports that they have transferred payment (awaiting shop confirmation),
+// optionally attaching a photo of the transfer slip as proof.
+router.post('/restaurant/order/:orderId/pay', uploadSlip.single('slip'), async (req, res) => {
   try {
     const order = await dbAsync.get(
       'SELECT * FROM orders WHERE order_id = ?',
@@ -390,10 +403,18 @@ router.post('/restaurant/order/:orderId/pay', async (req, res) => {
       return res.status(404).json({ error: 'ไม่พบออเดอร์นี้' });
     }
 
-    await dbAsync.run(
-      'UPDATE orders SET payment_status = ? WHERE order_id = ?',
-      ['transferred', req.params.orderId]
-    );
+    if (req.file) {
+      const slipUrl = `/uploads/${req.file.filename}`;
+      await dbAsync.run(
+        'UPDATE orders SET payment_status = ?, payment_slip_url = ? WHERE order_id = ?',
+        ['transferred', slipUrl, req.params.orderId]
+      );
+    } else {
+      await dbAsync.run(
+        'UPDATE orders SET payment_status = ? WHERE order_id = ?',
+        ['transferred', req.params.orderId]
+      );
+    }
 
     res.json({
       success: true,

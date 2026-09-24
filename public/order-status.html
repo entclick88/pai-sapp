@@ -156,6 +156,43 @@
     .pay-btn:hover { background: #b71c1c; }
     .pay-btn:disabled { background: #ccc; cursor: not-allowed; }
 
+    .slip-upload {
+      border: 2px dashed #ddd;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 13px;
+      color: #888;
+      margin-top: 10px;
+    }
+
+    .slip-upload:hover { border-color: #d32f2f; color: #d32f2f; }
+
+    .slip-upload img {
+      max-width: 100%;
+      max-height: 160px;
+      border-radius: 6px;
+    }
+
+    .slip-status {
+      margin-top: 10px;
+      text-align: center;
+    }
+
+    .slip-thumb {
+      max-width: 160px;
+      max-height: 160px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+
+    .slip-status-text {
+      font-size: 14px;
+      color: #666;
+      font-weight: 600;
+    }
+
     .thankyou-icon { font-size: 64px; margin-bottom: 10px; }
 
     .loading { padding: 40px 20px; color: #999; text-align: center; }
@@ -280,9 +317,7 @@
               <div style="font-size: 13px; color: #666; margin-bottom: 5px;">สแกนจ่ายผ่าน PromptPay</div>
               <div id="qrcodeBox"></div>
             </div>
-            <button class="pay-btn" id="payBtn" onclick="markPaid()" ${order.payment_status === 'transferred' ? 'disabled' : ''}>
-              ${order.payment_status === 'transferred' ? 'รอร้านยืนยันการชำระเงิน...' : 'ฉันโอนเงินแล้ว'}
-            </button>
+            ${renderSlipSection(order)}
           </div>
         `;
         renderQR(order.total);
@@ -321,12 +356,54 @@
       new QRCode(box, { text: payload, width: 200, height: 200 });
     }
 
+    let pendingSlipFile = null;
+
+    function renderSlipSection(order) {
+      if (order.payment_status === 'transferred') {
+        return `
+          <div class="slip-status">
+            ${order.payment_slip_url ? `<img src="${order.payment_slip_url}" class="slip-thumb">` : ''}
+            <div class="slip-status-text">✅ แจ้งชำระเงินแล้ว รอร้านตรวจสอบ...</div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="slip-upload" onclick="document.getElementById('slipFileInput').click()" id="slipUploadBox">
+          <span id="slipUploadIcon">📎 แนบสลิปการโอนเงิน (ถ้ามี)</span>
+          <img id="slipPreview" style="display:none;">
+        </div>
+        <input type="file" id="slipFileInput" accept="image/*" capture="environment" style="display:none;" onchange="onSlipSelected(this.files[0])">
+        <button class="pay-btn" id="payBtn" onclick="markPaid()">ฉันโอนเงินแล้ว</button>
+      `;
+    }
+
+    function onSlipSelected(file) {
+      if (!file) return;
+      pendingSlipFile = file;
+
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = document.getElementById('slipPreview');
+        img.src = e.target.result;
+        img.style.display = 'block';
+        document.getElementById('slipUploadIcon').style.display = 'none';
+      };
+      reader.readAsDataURL(file);
+    }
+
     async function markPaid() {
       const btn = document.getElementById('payBtn');
       btn.disabled = true;
       btn.textContent = 'กำลังแจ้ง...';
       try {
-        await fetch(`/api/restaurant/order/${encodeURIComponent(orderId)}/pay`, { method: 'POST' });
+        const formData = new FormData();
+        if (pendingSlipFile) formData.append('slip', pendingSlipFile);
+
+        await fetch(`/api/restaurant/order/${encodeURIComponent(orderId)}/pay`, {
+          method: 'POST',
+          body: formData
+        });
         loadOrder();
       } catch (e) {
         btn.disabled = false;
