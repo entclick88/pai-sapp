@@ -122,6 +122,10 @@ function initializeDatabase() {
       total REAL NOT NULL,
       payment_status TEXT DEFAULT 'unpaid',
       payment_slip_url TEXT,
+      discount_requested BOOLEAN DEFAULT 0,
+      discount_method TEXT,
+      discount_proof_url TEXT,
+      discount_applied BOOLEAN DEFAULT 0,
       device_id TEXT,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       completedAt DATETIME,
@@ -131,6 +135,10 @@ function initializeDatabase() {
   // Migrations for databases created before these columns existed
   db.run(`ALTER TABLE orders ADD COLUMN customer_name TEXT`, () => {});
   db.run(`ALTER TABLE orders ADD COLUMN payment_slip_url TEXT`, () => {});
+  db.run(`ALTER TABLE orders ADD COLUMN discount_requested BOOLEAN DEFAULT 0`, () => {});
+  db.run(`ALTER TABLE orders ADD COLUMN discount_method TEXT`, () => {});
+  db.run(`ALTER TABLE orders ADD COLUMN discount_proof_url TEXT`, () => {});
+  db.run(`ALTER TABLE orders ADD COLUMN discount_applied BOOLEAN DEFAULT 0`, () => {});
 
   // Restaurant System - Order Items
   db.run(`

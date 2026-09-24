@@ -347,6 +347,85 @@
       font-family: inherit;
     }
 
+    .discount-box {
+      background: #fff8e1;
+      border: 1px dashed #ffb74d;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 15px;
+    }
+
+    .discount-title {
+      font-weight: 700;
+      color: #d32f2f;
+      margin-bottom: 4px;
+      font-size: 15px;
+    }
+
+    .discount-desc {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 10px;
+      line-height: 1.4;
+    }
+
+    .line-btn {
+      display: block;
+      text-align: center;
+      background: #06c755;
+      color: white;
+      text-decoration: none;
+      padding: 10px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    .line-btn:hover { background: #05a648; }
+
+    .discount-check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .discount-or {
+      text-align: center;
+      font-size: 11px;
+      color: #999;
+      margin: 10px 0;
+    }
+
+    .discount-upload {
+      border: 1px dashed #ccc;
+      border-radius: 6px;
+      padding: 10px;
+      text-align: center;
+      font-size: 12px;
+      color: #888;
+      cursor: pointer;
+      background: white;
+    }
+
+    .discount-upload:hover { border-color: #d32f2f; color: #d32f2f; }
+
+    .discount-upload img {
+      max-width: 100%;
+      max-height: 100px;
+      border-radius: 4px;
+    }
+
+    .discount-status {
+      font-size: 12px;
+      color: #2e7d32;
+      font-weight: 600;
+      margin-top: 8px;
+      text-align: center;
+    }
+
     .modal-buttons {
       display: flex;
       gap: 10px;
@@ -510,6 +589,24 @@
       <div id="checkoutSummary"></div>
       <label style="display: block; margin-bottom: 5px; font-weight: 600;">ชื่อผู้สั่ง (สำหรับเรียกรับอาหาร)</label>
       <input type="text" id="customerNameInput" class="notes-input" style="margin: 0 0 15px;" placeholder="กรอกชื่อของคุณ" autocomplete="name">
+
+      <div class="discount-box">
+        <div class="discount-title">🎁 รับส่วนลด 10%!</div>
+        <div class="discount-desc">เพิ่มเพื่อน LINE OA ของร้าน หรือแคปหน้าจอเช็คอินโซเชียลแล้วอัปโหลด อย่างใดอย่างหนึ่ง</div>
+        <a href="https://lin.ee/zWbhFqO" target="_blank" id="lineOaBtn" class="line-btn">💬 เพิ่มเพื่อน LINE OA</a>
+        <label class="discount-check">
+          <input type="checkbox" id="lineOaCheckbox" onchange="onDiscountMethodChange('line_oa', this.checked)">
+          ฉันเพิ่มเพื่อน LINE OA ร้านแล้ว
+        </label>
+        <div class="discount-or">หรือ</div>
+        <div class="discount-upload" id="discountUploadBox" onclick="document.getElementById('discountProofInput').click()">
+          <span id="discountUploadLabel">📎 แคปหน้าจอเช็คอินโซเชียล</span>
+          <img id="discountProofPreview" style="display:none;">
+        </div>
+        <input type="file" id="discountProofInput" accept="image/*" style="display:none;" onchange="onDiscountProofSelected(this.files[0])">
+        <div class="discount-status" id="discountStatus"></div>
+      </div>
+
       <div class="modal-buttons">
         <button class="cancel-btn" onclick="closeCheckoutModal()">สั่งเพิ่มเติม</button>
         <button class="confirm-btn" id="submitOrderBtn" onclick="submitOrder()">ส่งออเดอร์ให้ร้าน</button>
@@ -526,6 +623,8 @@
     let categories = [];
     let currentItemId = null;
     let orderAlreadySubmitted = false;
+    let discountMethod = null;
+    let discountProofFile = null;
 
     async function init() {
       const params = new URLSearchParams(window.location.search);
@@ -545,6 +644,13 @@
 
         currentTableId = tableData.table.id;
         document.getElementById('tableNumber').textContent = tableData.table.table_number;
+
+        // Get shop settings (for the LINE OA button link)
+        fetch('/api/restaurant/settings').then(r => r.json()).then(data => {
+          if (data.settings && data.settings.lineOaUrl) {
+            document.getElementById('lineOaBtn').href = data.settings.lineOaUrl;
+          }
+        }).catch(() => {});
 
         // Get menu
         const menuRes = await fetch('/api/restaurant/menu');
@@ -778,6 +884,48 @@
 
     function closeCheckoutModal() {
       document.getElementById('checkoutModal').classList.remove('show');
+    }
+
+    async function onDiscountMethodChange(method, checked) {
+      if (!checked) return;
+      document.getElementById('discountProofInput').value = '';
+      document.getElementById('discountProofPreview').style.display = 'none';
+      document.getElementById('discountUploadLabel').style.display = 'block';
+      await submitDiscountRequest(method, null);
+    }
+
+    async function onDiscountProofSelected(file) {
+      if (!file) return;
+      document.getElementById('lineOaCheckbox').checked = false;
+
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = document.getElementById('discountProofPreview');
+        img.src = e.target.result;
+        img.style.display = 'block';
+        document.getElementById('discountUploadLabel').style.display = 'none';
+      };
+      reader.readAsDataURL(file);
+
+      await submitDiscountRequest('social_checkin', file);
+    }
+
+    async function submitDiscountRequest(method, file) {
+      if (!currentOrderId) return;
+
+      const formData = new FormData();
+      formData.append('method', method);
+      if (file) formData.append('proof', file);
+
+      try {
+        await fetch(`/api/restaurant/order/${currentOrderId}/discount-request`, {
+          method: 'POST',
+          body: formData
+        });
+        document.getElementById('discountStatus').textContent = `✅ ขอส่วนลด 10% แล้ว รอร้านตรวจสอบตอนเช็คบิล`;
+      } catch (error) {
+        console.error('discount request error:', error);
+      }
     }
 
     async function submitOrder() {

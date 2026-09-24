@@ -179,6 +179,48 @@
       border: 2px solid #ffb74d;
     }
 
+    .discount-admin-box {
+      border-radius: 6px;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .discount-admin-box.pending { background: #fff3cd; color: #856404; }
+    .discount-admin-box.applied {
+      background: #e8f5e9;
+      color: #2e7d32;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .discount-admin-box .slip-thumb {
+      display: block;
+      margin: 8px auto;
+    }
+
+    .discount-admin-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .mini-btn {
+      flex: 1;
+      padding: 6px 10px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      background: #eee;
+    }
+
+    .mini-btn.approve { background: #4caf50; color: white; }
+    .mini-btn.reject { background: #e57373; color: white; }
+
     .order-content {
       padding: 15px;
     }
@@ -515,9 +557,44 @@
             box.innerHTML = '<div style="font-size:12px;color:#999;">ยังไม่ได้ตั้งค่า PromptPay</div>';
             return;
           }
-          const payload = generatePromptPayPayload(promptpaySettings.promptpayId, o.total);
+          const payload = generatePromptPayPayload(promptpaySettings.promptpayId, o.payableTotal);
           new QRCode(box, { text: payload, width: 140, height: 140 });
         });
+    }
+
+    function discountRequestBox(order) {
+      if (!order.discount_requested) return '';
+
+      const methodLabel = order.discount_method === 'line_oa' ? 'เพิ่มเพื่อน LINE OA' : 'เช็คอินโซเชียล';
+
+      if (order.discount_applied) {
+        return `
+          <div class="discount-admin-box applied">
+            <span>🎉 อนุมัติส่วนลด 10% แล้ว (${methodLabel})</span>
+            <button class="mini-btn" onclick="setDiscount('${order.order_id}', false)">ยกเลิก</button>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="discount-admin-box pending">
+          <div>🎁 ลูกค้าขอส่วนลด 10% - ${methodLabel}</div>
+          ${order.discount_proof_url ? `<a href="${order.discount_proof_url}" target="_blank"><img src="${order.discount_proof_url}" class="slip-thumb" alt="หลักฐานเช็คอิน"></a>` : ''}
+          <div class="discount-admin-actions">
+            <button class="mini-btn approve" onclick="setDiscount('${order.order_id}', true)">✓ อนุมัติ</button>
+            <button class="mini-btn reject" onclick="setDiscount('${order.order_id}', false)">✕ ไม่อนุมัติ</button>
+          </div>
+        </div>
+      `;
+    }
+
+    async function setDiscount(orderId, approved) {
+      await fetch(`/api/restaurant/admin/order/${orderId}/discount`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approved })
+      });
+      loadOrders();
     }
 
     // SQLite stores CURRENT_TIMESTAMP as UTC without a timezone marker
@@ -562,8 +639,10 @@
 
             <div class="order-total">
               <span>รวม:</span>
-              <span>฿${order.total.toFixed(2)}</span>
+              <span>${order.discount_applied ? `<span style="text-decoration:line-through; color:#999; font-size:13px;">฿${order.total.toFixed(2)}</span> ` : ''}฿${order.payableTotal.toFixed(2)}</span>
             </div>
+
+            ${discountRequestBox(order)}
 
             <div class="timestamp">สั่งมา ${timeText}</div>
 

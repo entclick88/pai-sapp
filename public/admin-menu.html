@@ -254,6 +254,18 @@
     </div>
 
     <div class="section">
+      <h2>🎁 ส่วนลด 10% (LINE OA)</h2>
+      <div class="settings-form">
+        <div class="field">
+          <label>ลิงก์เพิ่มเพื่อน LINE OA</label>
+          <input type="text" id="lineOaUrl" placeholder="https://lin.ee/xxxxxxx">
+        </div>
+        <button class="btn" onclick="saveLineOaUrl()">บันทึก</button>
+      </div>
+      <div class="hint">ลูกค้าจะเห็นปุ่มนี้ตอนยืนยันสั่งอาหาร กดเพิ่มเพื่อน หรือแคปหน้าจอเช็คอินโซเชียล เพื่อขอส่วนลด 10% (แอดมินต้องกดอนุมัติที่หน้าออเดอร์)</div>
+    </div>
+
+    <div class="section">
       <h2>📊 หน้าวิเคราะห์ข้อมูล (สำหรับเจ้าของร้าน)</h2>
       <div class="settings-form">
         <div class="field">
@@ -295,6 +307,17 @@
       document.getElementById('promptpayId').value = data.settings.promptpayId || '';
       document.getElementById('shopName').value = data.settings.shopName || '';
       document.getElementById('ownerPin').value = data.settings.ownerPin || '';
+      document.getElementById('lineOaUrl').value = data.settings.lineOaUrl || '';
+    }
+
+    async function saveLineOaUrl() {
+      const lineOaUrl = document.getElementById('lineOaUrl').value.trim();
+      await fetch('/api/restaurant/admin/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lineOaUrl })
+      });
+      showToast('บันทึกลิงก์ LINE OA แล้ว');
     }
 
     async function saveOwnerPin() {

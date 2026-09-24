@@ -29,6 +29,25 @@ const uploadSlip = multer({
   fileFilter: (req, file, cb) => cb(null, /^image\//.test(file.mimetype))
 });
 
+const uploadDiscountProof = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadsDir),
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname) || '.jpg';
+      cb(null, `discount-${req.params.orderId}-${Date.now()}${ext}`);
+    }
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => cb(null, /^image\//.test(file.mimetype))
+});
+
+const DISCOUNT_PERCENT = 10;
+
+function computePayableTotal(order) {
+  const total = Number(order.total);
+  return order.discount_applied ? Math.round(total * (1 - DISCOUNT_PERCENT / 100) * 100) / 100 : total;
+}
+
 // Generate unique QR code identifier
 function generateQRCode() {
   return crypto.randomBytes(8).toString('hex');
@@ -131,7 +150,9 @@ router.get('/restaurant/settings', async (req, res) => {
       success: true,
       settings: {
         promptpayId: settings.promptpay_id || '',
-        shopName: settings.shop_name || 'ปายแซ่บ'
+        shopName: settings.shop_name || 'ปายแซ่บ',
+        lineOaUrl: settings.line_oa_url || 'https://lin.ee/zWbhFqO',
+        discountPercent: DISCOUNT_PERCENT
       }
     });
   } catch (error) {
@@ -270,6 +291,40 @@ router.put('/restaurant/order/:orderId/confirm', async (req, res) => {
   }
 });
 
+// Customer requests the 10% discount (LINE OA friend or social check-in),
+// optionally attaching a screenshot as proof. Staff reviews and approves it.
+router.post('/restaurant/order/:orderId/discount-request', uploadDiscountProof.single('proof'), async (req, res) => {
+  try {
+    const { method } = req.body;
+
+    if (!['line_oa', 'social_checkin'].includes(method)) {
+      return res.status(400).json({ error: 'วิธีขอส่วนลดไม่ถูกต้อง' });
+    }
+
+    const order = await dbAsync.get('SELECT * FROM orders WHERE order_id = ?', [req.params.orderId]);
+    if (!order) {
+      return res.status(404).json({ error: 'ไม่พบออเดอร์นี้' });
+    }
+
+    if (req.file) {
+      const proofUrl = `/uploads/${req.file.filename}`;
+      await dbAsync.run(
+        'UPDATE orders SET discount_requested = 1, discount_method = ?, discount_proof_url = ? WHERE order_id = ?',
+        [method, proofUrl, req.params.orderId]
+      );
+    } else {
+      await dbAsync.run(
+        'UPDATE orders SET discount_requested = 1, discount_method = ? WHERE order_id = ?',
+        [method, req.params.orderId]
+      );
+    }
+
+    res.json({ success: true, message: `ขอส่วนลด ${DISCOUNT_PERCENT}% แล้ว รอร้านตรวจสอบ` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get order details
 router.get('/restaurant/order/:orderId', async (req, res) => {
   try {
@@ -295,7 +350,8 @@ router.get('/restaurant/order/:orderId', async (req, res) => {
       success: true,
       order: {
         ...order,
-        items
+        items,
+        payableTotal: computePayableTotal(order)
       }
     });
   } catch (error) {
@@ -446,7 +502,7 @@ router.get('/restaurant/admin/orders', async (req, res) => {
          WHERE oi.order_id = ?`,
         [order.id]
       );
-      ordersWithItems.push({ ...order, items });
+      ordersWithItems.push({ ...order, items, payableTotal: computePayableTotal(order) });
     }
 
     res.json({ success: true, orders: ordersWithItems });
@@ -501,6 +557,25 @@ router.put('/restaurant/admin/order/:orderId/items/:itemId/prepare', async (req,
     );
 
     res.json({ success: true, message: 'ทำเสร็จแล้ว' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Staff approves or rejects a customer's discount request after checking the proof
+router.put('/restaurant/admin/order/:orderId/discount', async (req, res) => {
+  try {
+    const { approved } = req.body;
+
+    await dbAsync.run(
+      'UPDATE orders SET discount_applied = ? WHERE order_id = ?',
+      [approved ? 1 : 0, req.params.orderId]
+    );
+
+    res.json({
+      success: true,
+      message: approved ? `อนุมัติส่วนลด ${DISCOUNT_PERCENT}% แล้ว` : 'ไม่อนุมัติส่วนลด'
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -609,7 +684,8 @@ router.get('/restaurant/admin/settings', async (req, res) => {
       settings: {
         promptpayId: settings.promptpay_id || '',
         shopName: settings.shop_name || 'ปายแซ่บ',
-        ownerPin: settings.owner_pin || ''
+        ownerPin: settings.owner_pin || '',
+        lineOaUrl: settings.line_oa_url || 'https://lin.ee/zWbhFqO'
       }
     });
   } catch (error) {
@@ -619,7 +695,7 @@ router.get('/restaurant/admin/settings', async (req, res) => {
 
 router.put('/restaurant/admin/settings', async (req, res) => {
   try {
-    const { promptpayId, shopName, ownerPin } = req.body;
+    const { promptpayId, shopName, ownerPin, lineOaUrl } = req.body;
 
     if (promptpayId !== undefined) {
       await dbAsync.run(
@@ -642,6 +718,14 @@ router.put('/restaurant/admin/settings', async (req, res) => {
         `INSERT INTO restaurant_settings (key, value) VALUES ('owner_pin', ?)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
         [ownerPin]
+      );
+    }
+
+    if (lineOaUrl !== undefined) {
+      await dbAsync.run(
+        `INSERT INTO restaurant_settings (key, value) VALUES ('line_oa_url', ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        [lineOaUrl]
       );
     }
 
@@ -779,7 +863,8 @@ router.get('/restaurant/owner/analytics', async (req, res) => {
     const to = req.query.to || '2100-01-01';
 
     const salesRow = await dbAsync.get(
-      `SELECT COALESCE(SUM(total), 0) as sales, COUNT(*) as orderCount
+      `SELECT COALESCE(SUM(CASE WHEN discount_applied THEN total * ${(1 - DISCOUNT_PERCENT / 100)} ELSE total END), 0) as sales,
+              COUNT(*) as orderCount
        FROM orders
        WHERE status = 'paid' AND date(createdAt, '+7 hours') BETWEEN ? AND ?`,
       [from, to]
@@ -805,7 +890,9 @@ router.get('/restaurant/owner/analytics', async (req, res) => {
     );
 
     const dailySales = await dbAsync.all(
-      `SELECT date(createdAt, '+7 hours') as day, SUM(total) as sales, COUNT(*) as orderCount
+      `SELECT date(createdAt, '+7 hours') as day,
+              SUM(CASE WHEN discount_applied THEN total * ${(1 - DISCOUNT_PERCENT / 100)} ELSE total END) as sales,
+              COUNT(*) as orderCount
        FROM orders
        WHERE status = 'paid' AND date(createdAt, '+7 hours') BETWEEN ? AND ?
        GROUP BY day

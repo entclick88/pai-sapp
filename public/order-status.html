@@ -131,6 +131,18 @@
       color: #d32f2f;
     }
 
+    .discount-note {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 10px;
+      border-radius: 6px;
+      text-align: center;
+      margin-top: 8px;
+    }
+
+    .discount-note.applied { background: #e8f5e9; color: #2e7d32; }
+    .discount-note.pending { background: #fff3cd; color: #856404; }
+
     .qr-wrap {
       background: #fafafa;
       border-radius: 10px;
@@ -312,7 +324,8 @@
             <div class="status-title">อาหารเสร็จแล้ว!</div>
             <div class="status-desc">กรุณาชำระเงินตามยอดด้านล่าง</div>
             ${itemsHtml}
-            <div class="total-row"><span>ยอดชำระ</span><span>฿${Number(order.total).toFixed(2)}</span></div>
+            ${discountHtml(order)}
+            <div class="total-row"><span>ยอดชำระ</span><span>฿${Number(order.payableTotal).toFixed(2)}</span></div>
             <div class="qr-wrap">
               <div style="font-size: 13px; color: #666; margin-bottom: 5px;">สแกนจ่ายผ่าน PromptPay</div>
               <div id="qrcodeBox"></div>
@@ -320,7 +333,7 @@
             ${renderSlipSection(order)}
           </div>
         `;
-        renderQR(order.total);
+        renderQR(order.payableTotal);
         return;
       }
 
@@ -337,9 +350,24 @@
           <div class="status-title">${order.status === 'preparing' ? 'กำลังเตรียมอาหาร' : 'ส่งออเดอร์แล้ว'}</div>
           <div class="status-desc">${desc}</div>
           ${itemsHtml}
-          <div class="total-row"><span>รวม</span><span>฿${Number(order.total).toFixed(2)}</span></div>
+          ${discountHtml(order)}
+          <div class="total-row"><span>รวม</span><span>฿${Number(order.payableTotal).toFixed(2)}</span></div>
         </div>
       `;
+    }
+
+    function discountHtml(order) {
+      if (order.discount_applied) {
+        return `
+          <div class="discount-note applied">
+            🎉 ได้รับส่วนลด 10% แล้ว (ราคาเดิม ฿${Number(order.total).toFixed(2)})
+          </div>
+        `;
+      }
+      if (order.discount_requested) {
+        return `<div class="discount-note pending">🎁 ขอส่วนลด 10% แล้ว - รอร้านตรวจสอบ</div>`;
+      }
+      return '';
     }
 
     function renderQR(amount) {
