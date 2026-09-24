@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ปายแซ่บ - QR โต๊ะ</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #d32f2f 0%, #ff6f00 100%);
+      color: white;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .header h1 { font-size: 22px; }
+
+    .back-link, .print-btn {
+      color: white;
+      text-decoration: none;
+      background: rgba(255,255,255,0.2);
+      border: 2px solid white;
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .back-link:hover, .print-btn:hover { background: white; color: #d32f2f; }
+
+    .container {
+      max-width: 1100px;
+      margin: 20px auto;
+      padding: 0 15px 60px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      padding: 20px;
+      text-align: center;
+    }
+
+    .card h2 {
+      color: #d32f2f;
+      font-size: 20px;
+      margin-bottom: 4px;
+    }
+
+    .card .shop {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 10px;
+    }
+
+    .qr-box { display: flex; justify-content: center; margin: 10px 0; }
+
+    .link {
+      font-size: 11px;
+      color: #aaa;
+      word-break: break-all;
+      margin-top: 8px;
+    }
+
+    .loading { padding: 40px; text-align: center; color: #999; }
+
+    @media print {
+      .header { display: none; }
+      .container { margin: 0; padding: 0; }
+      .grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+      .card { break-inside: avoid; box-shadow: none; border: 1px dashed #ccc; }
+      .link { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🖨️ QR Code ประจำโต๊ะ</h1>
+    <div style="display:flex; gap:10px;">
+      <button class="print-btn" onclick="window.print()">พิมพ์</button>
+      <a href="admin-dashboard.html" class="back-link">← กลับไปหน้าออเดอร์</a>
+    </div>
+  </div>
+
+  <div class="container">
+    <div id="grid" class="grid">
+      <div class="loading">กำลังโหลด...</div>
+    </div>
+  </div>
+
+  <script>
+    async function load() {
+      const res = await fetch('/api/restaurant/admin/tables');
+      const data = await res.json();
+      const tables = data.tables || [];
+      const grid = document.getElementById('grid');
+
+      if (tables.length === 0) {
+        grid.innerHTML = '<div class="loading">ยังไม่มีโต๊ะ</div>';
+        return;
+      }
+
+      grid.innerHTML = tables.map(t => `
+        <div class="card">
+          <h2>โต๊ะที่ ${t.table_number}</h2>
+          <div class="shop">🌶️ ปายแซ่บ - สแกนเพื่อสั่งอาหาร</div>
+          <div class="qr-box" id="qr-${t.id}"></div>
+          <div class="link">${window.location.origin}/order.html?qr=${t.qr_code}</div>
+        </div>
+      `).join('');
+
+      tables.forEach(t => {
+        const url = `${window.location.origin}/order.html?qr=${t.qr_code}`;
+        new QRCode(document.getElementById(`qr-${t.id}`), { text: url, width: 160, height: 160 });
+      });
+    }
+
+    load();
+  </script>
+</body>
+</html>
