@@ -329,6 +329,7 @@
     <div style="display: flex; gap: 10px;">
       <a href="admin-menu.html" class="refresh-btn" style="text-decoration: none; display: inline-block;">🍽️ จัดการเมนู</a>
       <a href="admin-tables.html" class="refresh-btn" style="text-decoration: none; display: inline-block;">🖨️ QR โต๊ะ</a>
+      <button class="refresh-btn" id="soundToggleBtn" onclick="toggleSound()">🔔 เปิดเสียงแจ้งเตือน</button>
       <button class="refresh-btn" onclick="loadOrders()">🔄 รีเฟรช</button>
     </div>
   </div>
@@ -364,6 +365,61 @@
   <script>
     let allOrders = [];
     let promptpaySettings = null;
+    let soundEnabled = localStorage.getItem('paisaep_sound_enabled') === '1';
+    let seenOrderIds = null; // null = first load, don't alert on already-open orders
+    let seenTransferred = new Set();
+    let audioCtx = null;
+
+    updateSoundButton();
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      localStorage.setItem('paisaep_sound_enabled', soundEnabled ? '1' : '0');
+      updateSoundButton();
+      if (soundEnabled) {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        playBeep([880], 0.15); // quick confirmation beep
+      }
+    }
+
+    function updateSoundButton() {
+      const btn = document.getElementById('soundToggleBtn');
+      btn.textContent = soundEnabled ? '🔔 เสียงแจ้งเตือน: เปิด' : '🔕 เปิดเสียงแจ้งเตือน';
+    }
+
+    function playBeep(frequencies, noteDuration) {
+      if (!soundEnabled) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        frequencies.forEach((freq, i) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          const startAt = audioCtx.currentTime + i * (noteDuration + 0.05);
+          gain.gain.setValueAtTime(0.0001, startAt);
+          gain.gain.exponentialRampToValueAtTime(0.4, startAt + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, startAt + noteDuration);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(startAt);
+          osc.stop(startAt + noteDuration + 0.02);
+        });
+      } catch (error) {
+        console.error('Sound error:', error);
+      }
+    }
+
+    function playNewOrderAlert() {
+      playBeep([784, 784, 1047], 0.18); // three rising beeps - hard to miss
+    }
+
+    function playPaymentAlert() {
+      playBeep([659, 880], 0.18); // two beeps
+    }
 
     async function loadOrders() {
       try {
@@ -376,11 +432,32 @@
         const res = await fetch('/api/restaurant/admin/orders');
         const data = await res.json();
         allOrders = data.orders || [];
+        checkForAlerts(allOrders);
         renderOrders();
         updateStats();
       } catch (error) {
         console.error('Error loading orders:', error);
       }
+    }
+
+    function checkForAlerts(orders) {
+      const currentIds = new Set(orders.map(o => o.id));
+
+      if (seenOrderIds === null) {
+        // First load after opening the page - just record what's already there
+        seenOrderIds = currentIds;
+        orders.forEach(o => { if (o.payment_status === 'transferred') seenTransferred.add(o.id); });
+        return;
+      }
+
+      const newOrders = orders.filter(o => !seenOrderIds.has(o.id));
+      const newlyTransferred = orders.filter(o => o.payment_status === 'transferred' && !seenTransferred.has(o.id));
+
+      if (newOrders.length > 0) playNewOrderAlert();
+      else if (newlyTransferred.length > 0) playPaymentAlert();
+
+      seenOrderIds = currentIds;
+      orders.forEach(o => { if (o.payment_status === 'transferred') seenTransferred.add(o.id); });
     }
 
     function updateStats() {

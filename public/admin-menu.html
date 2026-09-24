@@ -99,6 +99,28 @@
 
     .menu-row.unavailable { opacity: 0.5; }
 
+    .thumb {
+      width: 44px;
+      height: 44px;
+      border-radius: 6px;
+      background: #f0f0f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      overflow: hidden;
+      border: 1px dashed #ccc;
+    }
+
+    .thumb:hover { border-color: #d32f2f; }
+
+    .thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
     .switch {
       position: relative;
       display: inline-block;
@@ -293,6 +315,11 @@
           <div class="category-title">${cat}</div>
           ${allItems.filter(i => i.category === cat).map(item => `
             <div class="menu-row ${item.available ? '' : 'unavailable'}" id="row-${item.id}">
+              <div class="thumb" onclick="document.getElementById('file-${item.id}').click()" title="อัปโหลดรูป">
+                <img id="thumb-img-${item.id}" src="${item.image_url || ''}" style="${item.image_url ? '' : 'display:none;'}">
+                <span id="thumb-icon-${item.id}" style="${item.image_url ? 'display:none;' : ''}">📷</span>
+              </div>
+              <input type="file" id="file-${item.id}" accept="image/*" style="display:none;" onchange="uploadImage(${item.id}, this.files[0])">
               <input type="text" value="${item.name}" onchange="updateItem(${item.id}, { name: this.value })">
               <input type="number" value="${item.price}" onchange="updateItem(${item.id}, { price: Number(this.value) })">
               <span class="save-hint">บาท</span>
@@ -322,6 +349,32 @@
       const item = allItems.find(i => i.id === id);
       document.getElementById(`row-${id}`).classList.toggle('unavailable', !available);
       showToast(available ? `เปิดขาย "${item.name}" แล้ว` : `ปิดขาย "${item.name}" แล้ว`);
+    }
+
+    async function uploadImage(id, file) {
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('image', file);
+
+      try {
+        const res = await fetch(`/api/restaurant/admin/menu/${id}/image`, {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'อัปโหลดไม่สำเร็จ');
+
+        const item = allItems.find(i => i.id === id);
+        item.image_url = data.imageUrl;
+
+        document.getElementById(`thumb-img-${id}`).src = data.imageUrl;
+        document.getElementById(`thumb-img-${id}`).style.display = '';
+        document.getElementById(`thumb-icon-${id}`).style.display = 'none';
+        showToast(`อัปเดตรูป "${item.name}" แล้ว`);
+      } catch (error) {
+        alert('เกิดข้อผิดพลาด: ' + error.message);
+      }
     }
 
     async function addMenuItem() {

@@ -1,7 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const { dbAsync } = require('../config/database');
+const { dbAsync, uploadsDir } = require('../config/database');
 const crypto = require('crypto');
+const path = require('path');
+const multer = require('multer');
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadsDir),
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname) || '.jpg';
+      cb(null, `menu-${req.params.id}-${Date.now()}${ext}`);
+    }
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => cb(null, /^image\//.test(file.mimetype))
+});
 
 // Generate unique QR code identifier
 function generateQRCode() {
@@ -28,6 +42,42 @@ router.get('/restaurant/table/:qrCode', async (req, res) => {
     }
 
     res.json({ success: true, table });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get this table's active (unfinished) order, if any - lets a customer who
+// re-scans the QR after closing the page pick up right where they left off.
+router.get('/restaurant/table/:qrCode/active-order', async (req, res) => {
+  try {
+    const table = await dbAsync.get(
+      'SELECT * FROM restaurant_tables WHERE qr_code = ?',
+      [req.params.qrCode]
+    );
+
+    if (!table) {
+      return res.status(404).json({ error: 'ไม่พบโต๊ะนี้' });
+    }
+
+    const order = await dbAsync.get(
+      `SELECT * FROM orders WHERE table_id = ? AND status IN ('pending', 'confirmed', 'preparing')
+       ORDER BY createdAt DESC LIMIT 1`,
+      [table.id]
+    );
+
+    if (!order) {
+      return res.json({ success: true, order: null });
+    }
+
+    const items = await dbAsync.all(
+      `SELECT oi.*, mi.name, mi.category FROM order_items oi
+       JOIN menu_items mi ON oi.menu_item_id = mi.id
+       WHERE oi.order_id = ?`,
+      [order.id]
+    );
+
+    res.json({ success: true, order: { ...order, items } });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -498,6 +548,27 @@ router.put('/restaurant/admin/menu/:id', async (req, res) => {
     );
 
     res.json({ success: true, message: 'อัปเดตเมนูแล้ว' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Upload a photo for a menu item
+router.post('/restaurant/admin/menu/:id/image', upload.single('image'), async (req, res) => {
+  try {
+    const existing = await dbAsync.get('SELECT * FROM menu_items WHERE id = ?', [req.params.id]);
+    if (!existing) {
+      return res.status(404).json({ error: 'ไม่พบเมนูนี้' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'กรุณาเลือกไฟล์รูปภาพ' });
+    }
+
+    const imageUrl = `/uploads/${req.file.filename}`;
+    await dbAsync.run('UPDATE menu_items SET image_url = ? WHERE id = ?', [imageUrl, req.params.id]);
+
+    res.json({ success: true, message: 'อัปโหลดรูปแล้ว', imageUrl });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

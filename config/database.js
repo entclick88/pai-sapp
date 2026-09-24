@@ -10,6 +10,13 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
+// Uploaded menu photos live alongside the database, so they survive
+// deploys/restarts on the same persistent disk.
+const uploadsDir = path.join(dataDir, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Database connection error:', err);
@@ -227,4 +234,4 @@ async function seedRestaurantDefaults() {
   }
 }
 
-module.exports = { db, dbAsync };
+module.exports = { db, dbAsync, uploadsDir };

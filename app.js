@@ -8,7 +8,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 
-const { db, dbAsync } = require('./config/database');
+const { db, dbAsync, uploadsDir } = require('./config/database');
 const authRoutes = require('./routes/auth');
 const templateRoutes = require('./routes/template');
 const emailSettingsRoutes = require('./routes/emailSettings');
@@ -25,6 +25,7 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(uploadsDir));
 
 // Session configuration
 app.use(session({

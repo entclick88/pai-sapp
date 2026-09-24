@@ -54,6 +54,23 @@
       font-size: 18px;
     }
 
+    .resume-banner {
+      background: #fff3cd;
+      color: #856404;
+      padding: 12px 15px;
+      margin: 0 10px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .resume-banner a {
+      color: #d32f2f;
+      font-weight: 700;
+      display: block;
+      margin-top: 4px;
+    }
+
     .container {
       max-width: 100%;
       padding: 10px;
@@ -116,6 +133,13 @@
       justify-content: center;
       color: white;
       font-size: 40px;
+      overflow: hidden;
+    }
+
+    .menu-item-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
 
     .menu-item-info {
@@ -436,6 +460,8 @@
     โต๊ะที่ <strong id="tableNumber">-</strong>
   </div>
 
+  <div class="resume-banner" id="resumeBanner" style="display:none;"></div>
+
   <div class="container">
     <div class="tabs" id="categoriesTabs"></div>
     <div class="menu-grid" id="menuGrid"></div>
@@ -494,14 +520,17 @@
   <script>
     let currentOrderId = null;
     let currentTableId = null;
+    let currentQrCode = null;
     let cart = {};
     let allMenuItems = [];
     let categories = [];
     let currentItemId = null;
+    let orderAlreadySubmitted = false;
 
     async function init() {
       const params = new URLSearchParams(window.location.search);
       const qrCode = params.get('qr');
+      currentQrCode = qrCode;
 
       if (!qrCode) {
         alert('ไม่พบรหัส QR');
@@ -527,9 +556,54 @@
 
         renderCategories();
         renderMenu(categories[0] || null);
+
+        // Resume an unfinished order at this table, if one exists
+        await loadActiveOrder(qrCode);
       } catch (error) {
         alert('เกิดข้อผิดพลาด: ' + error.message);
       }
+    }
+
+    async function loadActiveOrder(qrCode) {
+      try {
+        const res = await fetch(`/api/restaurant/table/${qrCode}/active-order`);
+        const data = await res.json();
+        const order = data.order;
+        if (!order || !order.items || order.items.length === 0) return;
+
+        currentOrderId = order.order_id;
+        orderAlreadySubmitted = order.status !== 'pending';
+
+        cart = {};
+        order.items.forEach(oi => {
+          if (!cart[oi.menu_item_id]) {
+            cart[oi.menu_item_id] = {
+              id: oi.menu_item_id,
+              name: oi.name,
+              price: oi.unit_price,
+              quantity: 0,
+              notes: oi.notes
+            };
+          }
+          cart[oi.menu_item_id].quantity += oi.quantity;
+        });
+
+        updateCartDisplay();
+
+        if (orderAlreadySubmitted) {
+          const banner = document.getElementById('resumeBanner');
+          banner.style.display = 'block';
+          banner.innerHTML = `คุณมีออเดอร์ที่ส่งไปแล้ว (สถานะ: ${statusLabelTh(order.status)}) เลือกอาหารเพิ่มได้เลย
+            <a href="order-status.html?orderId=${encodeURIComponent(currentOrderId)}">ดูสถานะออเดอร์ →</a>`;
+        }
+      } catch (error) {
+        console.error('loadActiveOrder error:', error);
+      }
+    }
+
+    function statusLabelTh(status) {
+      const labels = { confirmed: 'รับออเดอร์แล้ว', preparing: 'กำลังทำ' };
+      return labels[status] || status;
     }
 
     function renderCategories() {
@@ -550,7 +624,7 @@
 
       grid.innerHTML = items.map(item => `
         <div class="menu-item" onclick="openItemModal(${item.id}, '${item.name}', ${item.price}, '${item.description || ''}')">
-          <div class="menu-item-image">🥗</div>
+          <div class="menu-item-image">${item.image_url ? `<img src="${item.image_url}" alt="${item.name}">` : '🥗'}</div>
           <div class="menu-item-info">
             <div class="menu-item-name">${item.name}</div>
             <div class="menu-item-price">฿${item.price}</div>
@@ -670,6 +744,13 @@
       const items = Object.values(cart);
       if (items.length === 0) {
         alert('กรุณาเลือกอาหารก่อน');
+        return;
+      }
+
+      // Order was already sent to the kitchen earlier - new items were
+      // synced the moment they were added, so there's nothing left to confirm.
+      if (orderAlreadySubmitted) {
+        window.location.href = `order-status.html?orderId=${encodeURIComponent(currentOrderId)}`;
         return;
       }
 
