@@ -489,7 +489,7 @@
       const sorted = [...allOrders].sort((a, b) => {
         const priorityDiff = (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99);
         if (priorityDiff !== 0) return priorityDiff;
-        return new Date(b.createdAt) - new Date(a.createdAt);
+        return parseServerTime(b.createdAt) - parseServerTime(a.createdAt);
       });
 
       container.innerHTML = sorted.map(order => renderOrderCard(order)).join('');
@@ -512,9 +512,15 @@
         });
     }
 
+    // SQLite stores CURRENT_TIMESTAMP as UTC without a timezone marker
+    // ("2026-09-24 14:56:51"), which browsers otherwise parse as local time.
+    function parseServerTime(sqliteTimestamp) {
+      return new Date(sqliteTimestamp.replace(' ', 'T') + 'Z');
+    }
+
     function renderOrderCard(order) {
       const statusClass = `status-${order.status}`;
-      const createdTime = new Date(order.createdAt);
+      const createdTime = parseServerTime(order.createdAt);
       const now = new Date();
       const diffMinutes = Math.floor((now - createdTime) / 60000);
       const timeText = diffMinutes < 1 ? 'เพิ่งเดี๋ยว' : `${diffMinutes} นาทีที่แล้ว`;
