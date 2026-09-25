@@ -426,6 +426,16 @@
       text-align: center;
     }
 
+    .discount-used-note {
+      background: #f5f5f5;
+      color: #888;
+      font-size: 12px;
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
     .modal-buttons {
       display: flex;
       gap: 10px;
@@ -590,7 +600,7 @@
       <label style="display: block; margin-bottom: 5px; font-weight: 600;">ชื่อผู้สั่ง (สำหรับเรียกรับอาหาร)</label>
       <input type="text" id="customerNameInput" class="notes-input" style="margin: 0 0 15px;" placeholder="กรอกชื่อของคุณ" autocomplete="name">
 
-      <div class="discount-box">
+      <div class="discount-box" id="discountBoxWrap">
         <div class="discount-title">🎁 รับส่วนลด 10%!</div>
         <div class="discount-desc">เพิ่มเพื่อน LINE OA ของร้าน หรือแคปหน้าจอเช็คอินโซเชียลแล้วอัปโหลด อย่างใดอย่างหนึ่ง</div>
         <a href="https://lin.ee/zWbhFqO" target="_blank" id="lineOaBtn" class="line-btn">💬 เพิ่มเพื่อน LINE OA</a>
@@ -605,6 +615,9 @@
         </div>
         <input type="file" id="discountProofInput" accept="image/*" style="display:none;" onchange="onDiscountProofSelected(this.files[0])">
         <div class="discount-status" id="discountStatus"></div>
+      </div>
+      <div class="discount-used-note" id="discountUsedNote" style="display:none;">
+        🎁 คุณได้ใช้สิทธิ์ส่วนลดโปรนี้ไปแล้ว รอโปรโมชั่นใหม่จากทางร้านนะคะ
       </div>
 
       <div class="modal-buttons">
@@ -626,6 +639,16 @@
     let orderAlreadySubmitted = false;
     let discountMethod = null;
     let discountProofFile = null;
+    let discountEligible = true;
+
+    function getDeviceId() {
+      let id = localStorage.getItem('paisaep_device_id');
+      if (!id) {
+        id = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+        localStorage.setItem('paisaep_device_id', id);
+      }
+      return id;
+    }
 
     async function init() {
       const params = new URLSearchParams(window.location.search);
@@ -655,6 +678,12 @@
             document.getElementById('lineOaBtn').href = data.settings.lineOaUrl;
           }
         }).catch(() => {});
+
+        // Check whether this device already redeemed the discount this round
+        fetch(`/api/restaurant/discount-eligibility?deviceId=${encodeURIComponent(getDeviceId())}`)
+          .then(r => r.json())
+          .then(data => { discountEligible = data.eligible !== false; })
+          .catch(() => { discountEligible = true; });
 
         // Get menu
         const menuRes = await fetch('/api/restaurant/menu');
@@ -768,7 +797,7 @@
           const res = await fetch('/api/restaurant/order', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tableId: currentTableId })
+            body: JSON.stringify({ tableId: currentTableId, deviceId: getDeviceId() })
           });
           const data = await res.json();
           currentOrderId = data.order.order_id;
@@ -882,7 +911,11 @@
       `;
 
       document.getElementById('checkoutSummary').innerHTML = checkoutHTML;
-      document.getElementById('customerNameInput').value = '';
+      document.getElementById('customerNameInput').value = localStorage.getItem('paisaep_customer_name') || '';
+
+      document.getElementById('discountBoxWrap').style.display = discountEligible ? 'block' : 'none';
+      document.getElementById('discountUsedNote').style.display = discountEligible ? 'none' : 'block';
+
       document.getElementById('checkoutModal').classList.add('show');
     }
 
@@ -938,6 +971,8 @@
         alert('กรุณากรอกชื่อผู้สั่งก่อนยืนยัน');
         return;
       }
+
+      localStorage.setItem('paisaep_customer_name', customerName);
 
       const btn = document.getElementById('submitOrderBtn');
       btn.disabled = true;

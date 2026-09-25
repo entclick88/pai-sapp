@@ -48,6 +48,11 @@ function computePayableTotal(order) {
   return order.discount_applied ? Math.round(total * (1 - DISCOUNT_PERCENT / 100) * 100) / 100 : total;
 }
 
+async function getCurrentPromoVersion() {
+  const row = await dbAsync.get(`SELECT value FROM restaurant_settings WHERE key = 'discount_promo_version'`);
+  return (row && row.value) || 'v1';
+}
+
 // Generate unique QR code identifier
 function generateQRCode() {
   return crypto.randomBytes(8).toString('hex');
@@ -291,6 +296,29 @@ router.put('/restaurant/order/:orderId/confirm', async (req, res) => {
   }
 });
 
+// Whether this device is still eligible for the discount promo - false if
+// it already redeemed one under the current promo round (device_id is a
+// self-assigned id the browser keeps in localStorage, not real auth, but
+// enough to stop the obvious repeat-visit reuse)
+router.get('/restaurant/discount-eligibility', async (req, res) => {
+  try {
+    const { deviceId } = req.query;
+    if (!deviceId) {
+      return res.json({ success: true, eligible: true });
+    }
+
+    const currentVersion = await getCurrentPromoVersion();
+    const redeemed = await dbAsync.get(
+      `SELECT id FROM orders WHERE device_id = ? AND discount_applied = 1 AND discount_promo_version = ? LIMIT 1`,
+      [deviceId, currentVersion]
+    );
+
+    res.json({ success: true, eligible: !redeemed });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Customer requests the 10% discount (LINE OA friend or social check-in),
 // optionally attaching a screenshot as proof. Staff reviews and approves it.
 router.post('/restaurant/order/:orderId/discount-request', uploadDiscountProof.single('proof'), async (req, res) => {
@@ -494,6 +522,8 @@ router.get('/restaurant/admin/orders', async (req, res) => {
        ORDER BY o.createdAt DESC`
     );
 
+    const currentPromoVersion = await getCurrentPromoVersion();
+
     const ordersWithItems = [];
     for (const order of orders) {
       const items = await dbAsync.all(
@@ -502,7 +532,17 @@ router.get('/restaurant/admin/orders', async (req, res) => {
          WHERE oi.order_id = ?`,
         [order.id]
       );
-      ordersWithItems.push({ ...order, items, payableTotal: computePayableTotal(order) });
+
+      let discountDeviceReused = false;
+      if (order.discount_requested && !order.discount_applied && order.device_id) {
+        const priorRedeem = await dbAsync.get(
+          `SELECT id FROM orders WHERE device_id = ? AND discount_applied = 1 AND discount_promo_version = ? AND id != ? LIMIT 1`,
+          [order.device_id, currentPromoVersion, order.id]
+        );
+        discountDeviceReused = !!priorRedeem;
+      }
+
+      ordersWithItems.push({ ...order, items, payableTotal: computePayableTotal(order), discountDeviceReused });
     }
 
     res.json({ success: true, orders: ordersWithItems });
@@ -567,10 +607,18 @@ router.put('/restaurant/admin/order/:orderId/discount', async (req, res) => {
   try {
     const { approved } = req.body;
 
-    await dbAsync.run(
-      'UPDATE orders SET discount_applied = ? WHERE order_id = ?',
-      [approved ? 1 : 0, req.params.orderId]
-    );
+    if (approved) {
+      const promoVersion = await getCurrentPromoVersion();
+      await dbAsync.run(
+        'UPDATE orders SET discount_applied = 1, discount_promo_version = ? WHERE order_id = ?',
+        [promoVersion, req.params.orderId]
+      );
+    } else {
+      await dbAsync.run(
+        'UPDATE orders SET discount_applied = 0 WHERE order_id = ?',
+        [req.params.orderId]
+      );
+    }
 
     res.json({
       success: true,
@@ -685,9 +733,26 @@ router.get('/restaurant/admin/settings', async (req, res) => {
         promptpayId: settings.promptpay_id || '',
         shopName: settings.shop_name || 'ปายแซ่บ',
         ownerPin: settings.owner_pin || '',
-        lineOaUrl: settings.line_oa_url || 'https://lin.ee/zWbhFqO'
+        lineOaUrl: settings.line_oa_url || 'https://lin.ee/zWbhFqO',
+        discountPromoVersion: settings.discount_promo_version || 'v1'
       }
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Starts a fresh discount promo round: every device becomes eligible for
+// the 10% discount again, even ones that already redeemed the last round.
+router.post('/restaurant/admin/discount-promo/reset', async (req, res) => {
+  try {
+    const newVersion = `v${Date.now()}`;
+    await dbAsync.run(
+      `INSERT INTO restaurant_settings (key, value) VALUES ('discount_promo_version', ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      [newVersion]
+    );
+    res.json({ success: true, message: 'เริ่มโปรโมชั่นรอบใหม่แล้ว ทุกคนได้สิทธิ์ส่วนลดอีกครั้ง', version: newVersion });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -128,6 +128,7 @@ function initializeDatabase() {
       discount_method TEXT,
       discount_proof_url TEXT,
       discount_applied BOOLEAN DEFAULT 0,
+      discount_promo_version TEXT,
       device_id TEXT,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
       completedAt DATETIME,
@@ -141,6 +142,7 @@ function initializeDatabase() {
   db.run(`ALTER TABLE orders ADD COLUMN discount_method TEXT`, () => {});
   db.run(`ALTER TABLE orders ADD COLUMN discount_proof_url TEXT`, () => {});
   db.run(`ALTER TABLE orders ADD COLUMN discount_applied BOOLEAN DEFAULT 0`, () => {});
+  db.run(`ALTER TABLE orders ADD COLUMN discount_promo_version TEXT`, () => {});
 
   // Restaurant System - Order Items
   db.run(`

@@ -188,6 +188,16 @@
     }
 
     .discount-admin-box.pending { background: #fff3cd; color: #856404; }
+
+    .discount-warn {
+      background: #f8d7da;
+      color: #721c24;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-top: 6px;
+    }
     .discount-admin-box.applied {
       background: #e8f5e9;
       color: #2e7d32;
@@ -579,6 +589,7 @@
       return `
         <div class="discount-admin-box pending">
           <div>🎁 ลูกค้าขอส่วนลด 10% - ${methodLabel}</div>
+          ${order.discountDeviceReused ? '<div class="discount-warn">⚠️ อุปกรณ์นี้เคยได้รับส่วนลดในโปรนี้ไปแล้ว</div>' : ''}
           ${order.discount_proof_url ? `<a href="${order.discount_proof_url}" target="_blank"><img src="${order.discount_proof_url}" class="slip-thumb" alt="หลักฐานเช็คอิน"></a>` : ''}
           <div class="discount-admin-actions">
             <button class="mini-btn approve" onclick="setDiscount('${order.order_id}', true)">✓ อนุมัติ</button>

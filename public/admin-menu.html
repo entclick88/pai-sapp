@@ -263,6 +263,12 @@
         <button class="btn" onclick="saveLineOaUrl()">บันทึก</button>
       </div>
       <div class="hint">ลูกค้าจะเห็นปุ่มนี้ตอนยืนยันสั่งอาหาร กดเพิ่มเพื่อน หรือแคปหน้าจอเช็คอินโซเชียล เพื่อขอส่วนลด 10% (แอดมินต้องกดอนุมัติที่หน้าออเดอร์)</div>
+      <div class="hint" style="margin-top: 10px;">
+        ลูกค้าแต่ละเครื่องได้รับส่วนลดนี้ <strong>ครั้งเดียว</strong> ต่อโปรโมชั่น 1 รอบ ถ้าอยากให้ทุกคนได้สิทธิ์ใหม่อีกครั้ง (เช่น เริ่มโปรใหม่) กดปุ่มนี้:
+        <br><br>
+        <button class="btn" onclick="resetDiscountPromo()">🎉 เริ่มโปรโมชั่นรอบใหม่</button>
+        <span id="promoVersionLabel" style="font-size:12px; color:#999; margin-left:10px;"></span>
+      </div>
     </div>
 
     <div class="section">
@@ -308,6 +314,7 @@
       document.getElementById('shopName').value = data.settings.shopName || '';
       document.getElementById('ownerPin').value = data.settings.ownerPin || '';
       document.getElementById('lineOaUrl').value = data.settings.lineOaUrl || '';
+      document.getElementById('promoVersionLabel').textContent = `รอบปัจจุบัน: ${data.settings.discountPromoVersion}`;
     }
 
     async function saveLineOaUrl() {
@@ -318,6 +325,13 @@
         body: JSON.stringify({ lineOaUrl })
       });
       showToast('บันทึกลิงก์ LINE OA แล้ว');
+    }
+
+    async function resetDiscountPromo() {
+      if (!confirm('เริ่มโปรโมชั่นรอบใหม่? ลูกค้าทุกคน (รวมคนที่เคยใช้สิทธิ์ไปแล้ว) จะได้รับสิทธิ์ส่วนลด 10% อีกครั้ง')) return;
+      await fetch('/api/restaurant/admin/discount-promo/reset', { method: 'POST' });
+      showToast('เริ่มโปรโมชั่นรอบใหม่แล้ว');
+      loadSettings();
     }
 
     async function saveOwnerPin() {
