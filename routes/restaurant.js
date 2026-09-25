@@ -329,7 +329,7 @@ router.post('/restaurant/order/:orderId/discount-request', uploadDiscountProof.s
 router.get('/restaurant/order/:orderId', async (req, res) => {
   try {
     const order = await dbAsync.get(
-      `SELECT o.*, t.table_number FROM orders o
+      `SELECT o.*, t.table_number, t.is_takeaway FROM orders o
        JOIN restaurant_tables t ON o.table_id = t.id
        WHERE o.order_id = ?`,
       [req.params.orderId]
@@ -487,7 +487,7 @@ router.post('/restaurant/order/:orderId/pay', uploadSlip.single('slip'), async (
 router.get('/restaurant/admin/orders', async (req, res) => {
   try {
     const orders = await dbAsync.all(
-      `SELECT o.*, t.table_number
+      `SELECT o.*, t.table_number, t.is_takeaway
        FROM orders o
        JOIN restaurant_tables t ON o.table_id = t.id
        WHERE o.status IN ('confirmed', 'preparing', 'completed')
@@ -914,6 +914,21 @@ router.get('/restaurant/owner/analytics', async (req, res) => {
         dailySales
       }
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Mark/unmark a table as the takeaway QR (e.g. "table 1" repurposed as a
+// counter QR for pickup orders instead of an actual seated table)
+router.put('/restaurant/admin/tables/:id/takeaway', async (req, res) => {
+  try {
+    const { isTakeaway } = req.body;
+    await dbAsync.run(
+      'UPDATE restaurant_tables SET is_takeaway = ? WHERE id = ?',
+      [isTakeaway ? 1 : 0, req.params.id]
+    );
+    res.json({ success: true, message: isTakeaway ? 'ตั้งเป็นสั่งกลับบ้านแล้ว' : 'ยกเลิกแล้ว' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

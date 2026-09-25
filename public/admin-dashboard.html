@@ -617,7 +617,7 @@
         <div class="order-card">
           <div class="order-header">
             <div>
-              <div class="order-table">โต๊ะที่ ${order.table_number}</div>
+              <div class="order-table">${order.is_takeaway ? '🛍️ สั่งกลับบ้าน' : `โต๊ะที่ ${order.table_number}`}</div>
               <div class="order-id">${order.order_id}</div>
               ${order.customer_name ? `<div class="customer-name">👤 ${order.customer_name}</div>` : ''}
             </div>

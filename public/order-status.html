@@ -263,6 +263,10 @@
       }
     }
 
+    function tableLabel(order) {
+      return order.is_takeaway ? '🛍️ <strong>สั่งกลับบ้าน</strong>' : `โต๊ะที่ <strong>${order.table_number}</strong>`;
+    }
+
     function stepsHtml(status) {
       const order = ['confirmed', 'preparing', 'completed'];
       const labels = { confirmed: 'รับออเดอร์', preparing: 'กำลังทำ', completed: 'เสร็จแล้ว' };
@@ -318,7 +322,7 @@
       if (order.status === 'completed') {
         content.innerHTML = `
           <div class="card">
-            <div class="order-meta">โต๊ะที่ <strong>${order.table_number}</strong> · คุณ${order.customer_name || ''}</div>
+            <div class="order-meta">${tableLabel(order)} · คุณ${order.customer_name || ''}</div>
             ${stepsHtml('completed')}
             <div class="status-icon">✅</div>
             <div class="status-title">อาหารเสร็จแล้ว!</div>
@@ -344,7 +348,7 @@
 
       content.innerHTML = `
         <div class="card">
-          <div class="order-meta">โต๊ะที่ <strong>${order.table_number}</strong> · คุณ${order.customer_name || ''}</div>
+          <div class="order-meta">${tableLabel(order)} · คุณ${order.customer_name || ''}</div>
           ${stepsHtml(order.status === 'preparing' ? 'preparing' : 'confirmed')}
           <div class="status-icon pulsing">🍳</div>
           <div class="status-title">${order.status === 'preparing' ? 'กำลังเตรียมอาหาร' : 'ส่งออเดอร์แล้ว'}</div>

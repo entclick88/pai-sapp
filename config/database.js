@@ -93,9 +93,11 @@ function initializeDatabase() {
       table_number INTEGER UNIQUE NOT NULL,
       qr_code TEXT UNIQUE NOT NULL,
       status TEXT DEFAULT 'available',
+      is_takeaway BOOLEAN DEFAULT 0,
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  db.run(`ALTER TABLE restaurant_tables ADD COLUMN is_takeaway BOOLEAN DEFAULT 0`, () => {});
 
   // Restaurant System - Menu Items
   db.run(`

@@ -617,6 +617,7 @@
   <script>
     let currentOrderId = null;
     let currentTableId = null;
+    let isTakeaway = false;
     let currentQrCode = null;
     let cart = {};
     let allMenuItems = [];
@@ -643,7 +644,10 @@
         const tableData = await tableRes.json();
 
         currentTableId = tableData.table.id;
-        document.getElementById('tableNumber').textContent = tableData.table.table_number;
+        isTakeaway = !!tableData.table.is_takeaway;
+        document.getElementById('tableInfo').innerHTML = isTakeaway
+          ? '🛍️ <strong>สั่งกลับบ้าน</strong>'
+          : `โต๊ะที่ <strong>${tableData.table.table_number}</strong>`;
 
         // Get shop settings (for the LINE OA button link)
         fetch('/api/restaurant/settings').then(r => r.json()).then(data => {
