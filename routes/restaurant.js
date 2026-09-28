@@ -85,6 +85,11 @@ router.get('/restaurant/table/:qrCode', async (req, res) => {
 
 // Get this table's active (unfinished) order, if any - lets a customer who
 // re-scans the QR after closing the page pick up right where they left off.
+//
+// A takeaway table's QR is shared by many unrelated customers at once (it's
+// a single counter QR, not one physical table), so resuming there is scoped
+// to this device instead of the table - otherwise the next customer to scan
+// it would land in whatever order the previous customer left open.
 router.get('/restaurant/table/:qrCode/active-order', async (req, res) => {
   try {
     const table = await dbAsync.get(
@@ -96,11 +101,25 @@ router.get('/restaurant/table/:qrCode/active-order', async (req, res) => {
       return res.status(404).json({ error: 'ไม่พบโต๊ะนี้' });
     }
 
-    const order = await dbAsync.get(
-      `SELECT * FROM orders WHERE table_id = ? AND status IN ('pending', 'confirmed', 'preparing')
-       ORDER BY createdAt DESC LIMIT 1`,
-      [table.id]
-    );
+    const { deviceId } = req.query;
+    let order;
+
+    if (table.is_takeaway) {
+      if (!deviceId) {
+        return res.json({ success: true, order: null });
+      }
+      order = await dbAsync.get(
+        `SELECT * FROM orders WHERE table_id = ? AND device_id = ? AND status IN ('pending', 'confirmed', 'preparing')
+         ORDER BY createdAt DESC LIMIT 1`,
+        [table.id, deviceId]
+      );
+    } else {
+      order = await dbAsync.get(
+        `SELECT * FROM orders WHERE table_id = ? AND status IN ('pending', 'confirmed', 'preparing')
+         ORDER BY createdAt DESC LIMIT 1`,
+        [table.id]
+      );
+    }
 
     if (!order) {
       return res.json({ success: true, order: null });

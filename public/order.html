@@ -705,7 +705,7 @@
 
     async function loadActiveOrder(qrCode) {
       try {
-        const res = await fetch(`/api/restaurant/table/${qrCode}/active-order`);
+        const res = await fetch(`/api/restaurant/table/${qrCode}/active-order?deviceId=${encodeURIComponent(getDeviceId())}`);
         const data = await res.json();
         const order = data.order;
         if (!order || !order.items || order.items.length === 0) return;
