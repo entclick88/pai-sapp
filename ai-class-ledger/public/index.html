@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Class Ledger — ครู</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1c2230; --mute:#667085; --line:#e4e7ec; --brand:#4f46e5; --ok:#12805c; --warn:#b54708; --bad:#b42318; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#12151c; --card:#1b1f29; --ink:#e8eaf0; --mute:#98a2b3; --line:#2d3340; --brand:#818cf8; --ok:#4ade80; --warn:#fbbf24; --bad:#f87171; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui,"Noto Sans Thai",sans-serif; background:var(--bg); color:var(--ink); }
+  header { display:flex; align-items:center; gap:12px; padding:10px 16px; background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; flex:1; min-width:200px; }
+  .live { font-size:12px; color:var(--mute); } .live i { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--bad); margin-right:4px; } .live.on i { background:var(--ok); }
+  nav { display:flex; gap:4px; padding:8px 16px 0; overflow-x:auto; background:var(--card); border-bottom:1px solid var(--line); }
+  nav button { border:0; background:none; padding:8px 14px; color:var(--mute); cursor:pointer; border-bottom:2px solid transparent; font:inherit; white-space:nowrap; }
+  nav button.on { color:var(--brand); border-color:var(--brand); font-weight:600; }
+  main { padding:16px; max-width:1400px; margin:auto; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:14px; }
+  h2 { font-size:15px; margin:0 0 10px; }
+  button.b, select, input, textarea { font:inherit; color:inherit; background:var(--card); border:1px solid var(--line); border-radius:6px; padding:6px 10px; }
+  button.b { cursor:pointer; } button.b.pri { background:var(--brand); border-color:var(--brand); color:#fff; } button.b.sm { padding:2px 8px; font-size:13px; }
+  textarea { width:100%; min-height:90px; } label { display:block; font-size:13px; color:var(--mute); margin:8px 0 2px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; } .row > * { flex:0 0 auto; } .grow { flex:1 1 200px !important; }
+  .scroll { overflow:auto; max-height:70vh; border:1px solid var(--line); border-radius:8px; }
+  table { border-collapse:collapse; width:100%; font-size:14px; } th, td { border-bottom:1px solid var(--line); padding:4px 8px; text-align:left; white-space:nowrap; }
+  th { background:var(--bg); position:sticky; top:0; z-index:2; font-weight:600; } td.num, th.num { text-align:center; }
+  td:first-child, th:first-child, td:nth-child(2), th:nth-child(2) { position:sticky; left:0; background:var(--card); z-index:1; }
+  th:first-child, th:nth-child(2) { background:var(--bg); z-index:3; }
+  td input.sc { width:64px; text-align:center; padding:3px; } td input.sc.saved { border-color:var(--ok); } td input.sc.flash { background:color-mix(in srgb, var(--brand) 18%, transparent); }
+  .att button { width:34px; height:30px; border:1px solid var(--line); background:var(--card); border-radius:6px; cursor:pointer; margin-right:2px; color:var(--ink); font:inherit; }
+  .att button.on[data-s="P"] { background:var(--ok); color:#fff; border-color:var(--ok); } .att button.on[data-s="L"] { background:var(--warn); color:#fff; border-color:var(--warn); }
+  .att button.on[data-s="A"], .att button.on[data-s="S"] { background:var(--bad); color:#fff; border-color:var(--bad); }
+  .pill { display:inline-block; padding:1px 8px; border-radius:99px; font-size:12px; background:var(--bg); border:1px solid var(--line); }
+  .md { white-space:pre-wrap; background:var(--bg); padding:10px; border-radius:8px; font-size:14px; }
+  .mute { color:var(--mute); font-size:13px; } .bad { color:var(--bad); } .ok { color:var(--ok); }
+  #toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:var(--ink); color:var(--bg); padding:8px 16px; border-radius:8px; opacity:0; transition:.2s; pointer-events:none; z-index:20; max-width:90vw; }
+  #toast.show { opacity:1; }
+  #login { max-width:320px; margin:20vh auto; }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+<div id="login" class="card">
+  <h2>AI Class Ledger — ครู</h2>
+  <label>PIN ครู</label><input id="pin" type="password" autofocus style="width:100%">
+  <div class="row" style="margin-top:10px"><button class="b pri" id="loginBtn">เข้าสู่ระบบ</button><span id="loginErr" class="bad"></span></div>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <h1 id="title">ค30202</h1>
+    <span class="live" id="live"><i></i><span>กำลังเชื่อมต่อ</span></span>
+    <a class="mute" href="/student" target="_blank">หน้านักเรียน ↗</a>
+  </header>
+  <nav id="nav"></nav>
+  <main id="main"></main>
+</div>
+<div id="toast"></div>
+
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const CAT = { collect: 'ระหว่างภาค (ตามหน่วย)', final: 'สอบปลายภาค', affective: 'คุณลักษณะ/เจตคติ', integrated: 'บูรณาการ' };
+const ST = { P: '/', L: 'ส', S: 'ข', A: 'ล' };
+let token = sessionStorage.getItem('tok') || '';
+let S = { students: [], hours: [], assessments: [], scores: {}, att: {}, traits: {}, summary: [], cfg: {}, tab: 'hours', hour: null };
+const TABS = [['hours', 'ชั่วโมงเรียน'], ['att', 'เช็คชื่อ'], ['scores', 'คะแนน (เรียลไทม์)'], ['ai', 'AI & งานที่ส่ง'], ['traits', 'คุณลักษณะ'], ['people', 'นักเรียน'], ['export', 'Export / ตั้งค่า']];
+
+function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2600); }
+async function api(method, url, body) {
+  const r = await fetch(url, { method, headers: { 'content-type': 'application/json', 'x-token': token }, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401 && token) { sessionStorage.removeItem('tok'); location.reload(); }
+  if (!r.ok) throw new Error(j.error || r.status);
+  return j;
+}
+
+async function login() {
+  try { token = (await api('POST', '/api/login', { pin: $('#pin').value })).token; sessionStorage.setItem('tok', token); start(); }
+  catch (e) { $('#loginErr').textContent = e.message; }
+}
+$('#loginBtn').onclick = login; $('#pin').onkeydown = e => e.key === 'Enter' && login();
+
+async function loadAll() {
+  const [students, hours, assessments, scores, att, traits, summary, cfg] = await Promise.all(
+    ['students', 'hours', 'assessments', 'scores', 'attendance', 'traits', 'summary', 'config'].map(x => api('GET', '/api/' + x)));
+  S.students = students; S.hours = hours; S.assessments = assessments; S.summary = summary; S.cfg = cfg;
+  S.scores = {}; scores.forEach(x => S.scores[x.student_id + ':' + x.assessment_id] = x);
+  S.att = {}; att.forEach(x => S.att[x.hour_id + ':' + x.student_id] = x.status);
+  S.traits = {}; traits.forEach(x => S.traits[x.student_id + ':' + x.trait] = x.level);
+  if (!S.hour || !hours.find(h => h.id === S.hour)) S.hour = hours.length ? hours[hours.length - 1].id : null;
+  $('#title').textContent = cfg.settings.course;
+}
+
+async function start() {
+  $('#login').classList.add('hidden'); $('#app').classList.remove('hidden');
+  await loadAll(); renderNav(); render(); connect();
+}
+
+let es, refetchT;
+function connect() {
+  es = new EventSource('/api/events?t=' + token);
+  es.onopen = () => { $('#live').classList.add('on'); $('#live span').textContent = 'เรียลไทม์'; };
+  es.onerror = () => { $('#live').classList.remove('on'); $('#live span').textContent = 'ขาดการเชื่อมต่อ (กำลังลองใหม่)'; };
+  es.onmessage = ev => {
+    const m = JSON.parse(ev.data);
+    if (m.type === 'score') {
+      // อัปเดตช่องที่เปลี่ยนโดยไม่ต้องวาดทั้งตาราง และไม่ทับช่องที่กำลังพิมพ์
+      S.scores[m.student_id + ':' + m.assessment_id] = { ...(S.scores[m.student_id + ':' + m.assessment_id] || {}), score: m.score };
+      const inp = document.querySelector(`input.sc[data-s="${m.student_id}"][data-a="${m.assessment_id}"]`);
+      if (inp && document.activeElement !== inp) { inp.value = m.score ?? ''; inp.classList.add('flash'); setTimeout(() => inp.classList.remove('flash'), 800); }
+      clearTimeout(refetchT); refetchT = setTimeout(refreshSummary, 300);
+    } else if (m.type === 'export') { S.cfg.lastExport = m; if (S.tab === 'export') render(); toast('ส่งออกไป Google Sheet แล้ว'); }
+    else { clearTimeout(refetchT); refetchT = setTimeout(async () => { if (!document.activeElement || !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) { await loadAll(); render(); } else refreshSummary(); }, 250); }
+  };
+}
+async function refreshSummary() {
+  S.summary = await api('GET', '/api/summary');
+  document.querySelectorAll('[data-sum]').forEach(td => {
+    const r = S.summary.find(x => x.student.id === +td.dataset.sum); if (r) td.textContent = r.total + ' (' + (r.grade ?? '-') + ')';
+  });
+}
+
+function renderNav() {
+  $('#nav').innerHTML = TABS.map(([k, v]) => `<button data-k="${k}" class="${S.tab === k ? 'on' : ''}">${v}</button>`).join('');
+  $('#nav').onclick = e => { const k = e.target.dataset.k; if (k) { S.tab = k; renderNav(); render(); } };
+}
+const hourSelect = () => `<select id="hsel">${S.hours.map(h => `<option value="${h.id}" ${h.id === S.hour ? 'selected' : ''}>ชม.${h.seq} ${esc(h.date)} — ${esc(h.topic)}</option>`).join('')}</select>`;
+function render() { ({ hours: vHours, att: vAtt, scores: vScores, ai: vAi, traits: vTraits, people: vPeople, export: vExport })[S.tab](); }
+
+// ----- ชั่วโมงเรียน -----
+function vHours() {
+  const h = S.hours.find(x => x.id === S.hour);
+  $('#main').innerHTML = `
+  <div class="card"><h2>เพิ่มชั่วโมงเรียน</h2>
+    <div class="row"><input id="h_date" type="date" value="${new Date().toISOString().slice(0, 10)}"><input id="h_topic" class="grow" placeholder="หัวข้อ เช่น การประมวลผลข้อมูลด้วยตาราง">
+    <input id="h_ind" class="grow" placeholder="ตัวชี้วัด"><input id="h_ai" class="grow" placeholder="เน้น AI เช่น ใช้ AI ตรวจสอบคำตอบ + พิสูจน์ซ้ำ"><button class="b pri" id="h_add">เพิ่ม</button></div></div>
+  <div class="card"><div class="row"><h2 style="margin:0">แผนรายชั่วโมง</h2>${hourSelect()}
+    <button class="b" id="h_plan" ${S.cfg.aiEnabled ? '' : 'disabled title="ตั้ง ANTHROPIC_API_KEY ก่อน"'}>✨ ให้ AI สร้างแผน</button>
+    <button class="b" id="h_del">ลบชั่วโมงนี้</button></div>
+    ${h ? `<label>หัวข้อ</label><input id="e_topic" style="width:100%" value="${esc(h.topic)}">
+    <label>ตัวชี้วัด</label><input id="e_ind" style="width:100%" value="${esc(h.indicator)}">
+    <label>เน้น AI</label><input id="e_ai" style="width:100%" value="${esc(h.ai_focus)}">
+    <label>แผนการสอน (แก้ไขได้)</label><textarea id="e_plan" style="min-height:260px">${esc(h.plan)}</textarea>
+    <label>บันทึกหลังสอน (Teaching Record)</label><textarea id="e_rec">${esc(h.record)}</textarea>
+    <div class="row" style="margin-top:8px"><button class="b pri" id="h_save">บันทึก</button></div>` : '<p class="mute">ยังไม่มีชั่วโมงเรียน</p>'}</div>`;
+  $('#h_add').onclick = async () => {
+    if (!$('#h_topic').value) return toast('ใส่หัวข้อก่อน');
+    const r = await api('POST', '/api/hours', { date: $('#h_date').value, topic: $('#h_topic').value, indicator: $('#h_ind').value, ai_focus: $('#h_ai').value });
+    S.hour = r.id; await loadAll(); render();
+  };
+  if (!h) return;
+  $('#hsel').onchange = e => { S.hour = +e.target.value; render(); };
+  $('#h_save').onclick = async () => { await api('PUT', '/api/hours/' + h.id, { topic: $('#e_topic').value, indicator: $('#e_ind').value, ai_focus: $('#e_ai').value, plan: $('#e_plan').value, record: $('#e_rec').value }); toast('บันทึกแล้ว'); };
+  $('#h_del').onclick = async () => { if (confirm('ลบชั่วโมงนี้ (รวมข้อมูลเช็คชื่อ)?')) { await api('DELETE', '/api/hours/' + h.id); await loadAll(); render(); } };
+  $('#h_plan').onclick = async e => {
+    e.target.disabled = true; e.target.textContent = 'AI กำลังคิด…';
+    try { await api('PUT', '/api/hours/' + h.id, { topic: $('#e_topic').value, indicator: $('#e_ind').value, ai_focus: $('#e_ai').value }); await api('POST', '/api/ai/plan', { hour_id: h.id }); await loadAll(); render(); toast('สร้างแผนแล้ว — ตรวจและแก้ไขก่อนใช้'); }
+    catch (er) { toast(er.message); e.target.disabled = false; e.target.textContent = '✨ ให้ AI สร้างแผน'; }
+  };
+}
+
+// ----- เช็คชื่อ -----
+function vAtt() {
+  if (!S.hours.length) { $('#main').innerHTML = '<div class="card">เพิ่มชั่วโมงเรียนก่อน</div>'; return; }
+  $('#main').innerHTML = `<div class="card"><div class="row">${hourSelect()}<button class="b" id="allP">มาทั้งหมด</button>
+    <span class="mute">/ มา · ส สาย · ข ขาด (S) · ล ลา (A) — บันทึกทันทีที่กด</span></div></div>
+  <div class="scroll"><table><tr><th class="num">เลขที่</th><th>ชื่อ-สกุล</th><th>สถานะ</th></tr>
+  ${S.students.map(s => `<tr><td class="num">${s.no ?? ''}</td><td>${esc(s.name)}</td><td class="att" data-s="${s.id}">${Object.keys(ST).map(k => `<button data-s="${k}" class="${S.att[S.hour + ':' + s.id] === k ? 'on' : ''}">${ST[k]}</button>`).join('')}</td></tr>`).join('')}</table></div>`;
+  $('#hsel').onchange = e => { S.hour = +e.target.value; render(); };
+  $('#allP').onclick = async () => { await api('POST', '/api/attendance/all', { hour_id: S.hour, status: 'P' }); };
+  $('#main').onclick = async e => {
+    const b = e.target.closest('.att button'); if (!b) return;
+    const sid = +b.parentElement.dataset.s, cur = S.att[S.hour + ':' + sid], next = cur === b.dataset.s ? '' : b.dataset.s;
+    S.att[S.hour + ':' + sid] = next; [...b.parentElement.children].forEach(x => x.classList.toggle('on', x.dataset.s === next));
+    await api('PUT', '/api/attendance', { hour_id: S.hour, student_id: sid, status: next });
+  };
+}
+
+// ----- คะแนน -----
+function vScores() {
+  const A = S.assessments;
+  $('#main').innerHTML = `
+  <div class="card"><h2>เพิ่มงาน / การประเมิน</h2><div class="row">
+    <input id="a_t" class="grow" placeholder="ชื่องาน เช่น ใบงานที่ 3 ตรวจคำตอบ AI">
+    <select id="a_c">${Object.entries(CAT).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select>
+    <select id="a_u" title="หน่วยการเรียนรู้">${[1, 2, 3, 4, 5, 6].map(u => `<option value="${u}">หน่วย ${u}</option>`).join('')}</select>
+    <select id="a_d" title="K ความรู้ / P กระบวนการ / A เจตคติ"><option value="K">K ความรู้</option><option value="P">P กระบวนการ</option><option value="A">A เจตคติ</option></select>
+    <input id="a_m" type="number" value="10" style="width:80px" title="คะแนนเต็ม">
+    <select id="a_h"><option value="">ไม่ผูกชั่วโมง</option>${S.hours.map(h => `<option value="${h.id}" ${h.id === S.hour ? 'selected' : ''}>ชม.${h.seq}</option>`).join('')}</select>
+    <button class="b pri" id="a_add">เพิ่ม</button></div></div>
+  <div class="scroll"><table><tr><th class="num">เลขที่</th><th>ชื่อ-สกุล</th>
+    ${A.map(a => `<th class="num" title="${esc(a.title)}">${esc(a.title.slice(0, 14))}<br><span class="mute">/${a.max} · ${a.category === 'collect' ? 'หน่วย ' + a.unit + a.domain : CAT[a.category]}</span><br>
+      <button class="b sm" data-del="${a.id}">ลบ</button></th>`).join('')}<th class="num">รวม (เกรด)</th></tr>
+  ${S.students.map(s => `<tr><td class="num">${s.no ?? ''}</td><td>${esc(s.name)}</td>
+    ${A.map(a => `<td class="num"><input class="sc" type="number" step="0.5" min="0" max="${a.max}" data-s="${s.id}" data-a="${a.id}" value="${S.scores[s.id + ':' + a.id]?.score ?? ''}"></td>`).join('')}
+    <td class="num" data-sum="${s.id}">${(r => r ? r.total + ' (' + (r.grade ?? '-') + ')' : '')(S.summary.find(x => x.student.id === s.id))}</td></tr>`).join('')}</table></div>
+  <p class="mute">พิมพ์แล้วกด Tab/Enter ระบบบันทึกและส่งให้ทุกเครื่องทันที · ช่องว่าง = ยังไม่ตรวจ (ไม่นับเป็น 0)</p>`;
+  $('#a_add').onclick = async () => {
+    if (!$('#a_t').value) return toast('ใส่ชื่องาน');
+    await api('POST', '/api/assessments', { title: $('#a_t').value, category: $('#a_c').value, unit: $('#a_u').value, domain: $('#a_d').value, max: $('#a_m').value, hour_id: $('#a_h').value || null }); await loadAll(); render();
+  };
+  $('#main').onclick = async e => { const id = e.target.dataset.del; if (id && confirm('ลบงานนี้และคะแนนทั้งหมดของงาน?')) { await api('DELETE', '/api/assessments/' + id); await loadAll(); render(); } };
+  $('#main').onchange = async e => {
+    const i = e.target; if (!i.classList.contains('sc')) return;
+    try { await api('PUT', '/api/scores', { student_id: +i.dataset.s, assessment_id: +i.dataset.a, score: i.value }); i.classList.add('saved'); setTimeout(() => i.classList.remove('saved'), 900); }
+    catch (er) { toast(er.message); i.value = S.scores[i.dataset.s + ':' + i.dataset.a]?.score ?? ''; }
+  };
+}
+
+// ----- AI & งานที่ส่ง -----
+async function vAi() {
+  $('#main').innerHTML = '<div class="card mute">กำลังโหลด…</div>';
+  const [subs, logs] = await Promise.all([api('GET', '/api/submissions'), api('GET', '/api/ailogs')]);
+  const open = S.assessments;
+  $('#main').innerHTML = `
+  <div class="card"><h2>เปิดรับงานจากนักเรียน</h2><div class="row">${open.map(a => `<label style="display:inline-flex;gap:4px;margin:0;color:var(--ink)"><input type="checkbox" data-open="${a.id}" ${a.open ? 'checked' : ''}>${esc(a.title)}</label>`).join('') || '<span class="mute">ยังไม่มีงาน</span>'}</div>
+    <label>รูบริค/เกณฑ์ให้ AI ตรวจ</label><div class="row"><select id="rb_a">${open.map(a => `<option value="${a.id}">${esc(a.title)}</option>`).join('')}</select></div>
+    <textarea id="rb_t" placeholder="เช่น 4 คะแนน=คำตอบถูก+อธิบายเหตุผล+ตรวจสอบผล AI ด้วยวิธีอื่น …"></textarea><button class="b" id="rb_s">บันทึกรูบริค</button></div>
+  <div class="card"><h2>งานที่นักเรียนส่ง (${subs.length})</h2>
+  ${subs.map(x => `<div style="border-top:1px solid var(--line);padding:8px 0"><b>${x.no ?? ''} ${esc(x.name)}</b> · ${esc(x.title)} <span class="pill">${x.status}</span>
+    <div class="md">${esc(x.answer)}</div>
+    ${x.ai_feedback ? `<div class="mute">AI เสนอ ${x.ai_score}/${x.max}: ${esc(x.ai_feedback)}</div>` : ''}
+    <div class="row" style="margin-top:6px"><button class="b sm" data-grade="${x.id}" ${S.cfg.aiEnabled ? '' : 'disabled'}>✨ ให้ AI ตรวจ</button>
+    <input type="number" step="0.5" id="ap_${x.id}" value="${x.ai_score ?? ''}" style="width:80px" placeholder="คะแนน"><button class="b sm pri" data-ap="${x.id}">อนุมัติ → ลงคะแนน</button></div></div>`).join('') || '<p class="mute">ยังไม่มีงานส่ง</p>'}</div>
+  <div class="card"><h2>บันทึกการใช้ AI ของนักเรียน (${logs.length})</h2><div class="scroll"><table><tr><th>เวลา</th><th>นักเรียน</th><th>เครื่องมือ</th><th>Prompt</th><th>วิธีตรวจสอบ</th><th>สะท้อนคิด</th></tr>
+  ${logs.map(l => `<tr><td>${new Date(l.created_at).toLocaleString('th-TH')}</td><td>${esc(l.name)}</td><td>${esc(l.tool)}</td><td style="white-space:normal;min-width:240px">${esc(l.prompt)}</td><td style="white-space:normal">${esc(l.verified)}</td><td style="white-space:normal">${esc(l.reflection)}</td></tr>`).join('')}</table></div></div>
+  <div class="card"><h2>AI สรุปภาพรวมห้อง / นักเรียนเสี่ยง</h2><button class="b" id="ins" ${S.cfg.aiEnabled ? '' : 'disabled title="ตั้ง ANTHROPIC_API_KEY ก่อน"'}>✨ วิเคราะห์</button><div id="ins_out" class="md hidden" style="margin-top:8px"></div></div>`;
+  const setRb = () => { const a = S.assessments.find(x => x.id === +$('#rb_a').value); $('#rb_t').value = a?.rubric || ''; };
+  if (open.length) { $('#rb_a').onchange = setRb; setRb(); }
+  $('#rb_s').onclick = async () => { await api('PUT', '/api/assessments/' + $('#rb_a').value, { rubric: $('#rb_t').value }); toast('บันทึกรูบริคแล้ว'); await loadAll(); };
+  $('#main').onchange = async e => { if (e.target.dataset.open) { await api('PUT', '/api/assessments/' + e.target.dataset.open, { open: e.target.checked }); await loadAll(); } };
+  $('#main').onclick = async e => {
+    const t = e.target;
+    try {
+      if (t.dataset.grade) { t.textContent = 'กำลังตรวจ…'; t.disabled = true; await api('POST', `/api/submissions/${t.dataset.grade}/ai-grade`); vAi(); }
+      if (t.dataset.ap) { await api('POST', `/api/submissions/${t.dataset.ap}/approve`, { score: $('#ap_' + t.dataset.ap).value }); toast('ลงคะแนนแล้ว'); await loadAll(); vAi(); }
+      if (t.id === 'ins') { t.disabled = true; t.textContent = 'กำลังวิเคราะห์…'; const r = await api('POST', '/api/ai/insights'); $('#ins_out').classList.remove('hidden'); $('#ins_out').textContent = r.text; t.disabled = false; t.textContent = '✨ วิเคราะห์'; }
+    } catch (er) { toast(er.message); }
+  };
+}
+
+// ----- คุณลักษณะ -----
+function vTraits() {
+  const T = S.cfg.traits, L = { '': '-', 3: 'ดีเยี่ยม', 2: 'ดี', 1: 'ผ่าน', 0: 'ไม่ผ่าน' };
+  $('#main').innerHTML = `<div class="scroll"><table><tr><th class="num">เลขที่</th><th>ชื่อ-สกุล</th>${T.map(t => `<th class="num" style="white-space:normal;min-width:90px">${esc(t)}</th>`).join('')}</tr>
+  ${S.students.map(s => `<tr><td class="num">${s.no ?? ''}</td><td>${esc(s.name)}</td>${T.map((t, i) => `<td class="num"><select data-s="${s.id}" data-t="${i}">${Object.entries(L).map(([k, v]) => `<option value="${k}" ${String(S.traits[s.id + ':' + t] ?? '') === k ? 'selected' : ''}>${v}</option>`).join('')}</select></td>`).join('')}</tr>`).join('')}</table></div>`;
+  $('#main').onchange = async e => { const s = e.target; if (s.dataset.t) await api('PUT', '/api/traits', { student_id: +s.dataset.s, trait: T[+s.dataset.t], level: s.value }); };
+}
+
+// ----- นักเรียน -----
+function vPeople() {
+  $('#main').innerHTML = `<div class="card"><h2>นำเข้ารายชื่อ</h2><p class="mute">บรรทัดละคน: เลขที่, เลขประจำตัว, ชื่อ-สกุล (วางจาก Excel/Sheet ได้)</p>
+  <textarea id="bulk" placeholder="1, 12345, สมชาย ใจดี"></textarea><button class="b pri" id="bulkGo">นำเข้า</button></div>
+  <div class="card"><h2>ดึงรายชื่อจากชีท</h2><p class="mute">อ่านเลขประจำตัว + ชื่อจากแท็บ Grades (แถว 7 ลงไป) เพื่อให้เลขประจำตัวตรงกับชีทแน่นอน ไม่ลบนักเรียนที่มีอยู่</p>
+  <button class="b" id="syncGo" ${S.cfg.sheetsReady ? '' : 'disabled title="ตั้ง GOOGLE_SA_FILE ก่อน"'}>ดึงรายชื่อจากชีท</button></div>
+  <div class="card"><h2>รายชื่อ (${S.students.length}) — รหัสนักเรียนใช้เข้า <a href="/student" target="_blank">/student</a></h2><div class="scroll"><table><tr><th>เลขที่</th><th>ชื่อ</th><th>เลขประจำตัว</th><th>รหัสเข้าระบบ</th><th></th></tr>
+  ${S.students.map(s => `<tr><td>${s.no ?? ''}</td><td>${esc(s.name)}</td><td>${esc(s.sid)}</td><td><code>${s.code}</code> <a href="/student?code=${s.code}" target="_blank">เปิดเป็นนักเรียนคนนี้ ↗</a></td><td><button class="b sm" data-del="${s.id}">ลบ</button></td></tr>`).join('')}</table></div></div>`;
+  $('#bulkGo').onclick = async () => { const r = await api('POST', '/api/students/bulk', { text: $('#bulk').value }); toast(`เพิ่ม ${r.added} คน`); await loadAll(); render(); };
+  $('#syncGo').onclick = async e => { e.target.disabled = true; try { const r = await api('POST', '/api/students/sync-from-sheet'); toast(`เพิ่ม ${r.added} · อัปเดต ${r.updated}`); await loadAll(); render(); } catch (er) { toast(er.message); e.target.disabled = false; } };
+  $('#main').onclick = async e => { const id = e.target.dataset.del; if (id && confirm('ลบนักเรียน (คะแนนและเช็คชื่อหายด้วย)?')) { await api('DELETE', '/api/students/' + id); await loadAll(); render(); } };
+}
+
+// ----- Export / ตั้งค่า -----
+function vExport() {
+  const st = S.cfg.settings, le = S.cfg.lastExport;
+  $('#main').innerHTML = `
+  <div class="card"><h2>ส่งออกไป Google Sheet</h2>
+    <p class="mute">เขียนลง <b>ช่องกรอก</b> ของแท็บเดิม: Grades (คะแนนตามหน่วย K/P/A, สอบปลายภาค, คุณลักษณะ), Class Attendance (เช็คชื่อ+วันที่), Desirable Characteristics (การอ่าน/คิด/เขียน + 9 คุณลักษณะ) จับคู่นักเรียนด้วยเลขประจำตัว ไม่แตะช่องสูตร — ยอดรวมหน่วยและเกรดชีทคำนวณเอง. ${S.cfg.sheetsReady ? '<span class="ok">· เชื่อม Google แล้ว</span>' : '<span class="bad">· ยังไม่ตั้ง GOOGLE_SA_FILE (ดู README)</span>'} ${S.cfg.autoExport ? '· ส่งออกอัตโนมัติ 15 วินาทีหลังมีการแก้ไข' : ''}</p>
+    <div class="row"><button class="b" id="x_dry">ดูตัวอย่าง (ไม่เขียน)</button><button class="b pri" id="x_go" ${S.cfg.sheetsReady ? '' : 'disabled'}>ส่งออกตอนนี้</button></div>
+    ${le ? `<p class="${le.error ? 'bad' : 'ok'}">ครั้งล่าสุด: ${le.error ? esc(le.error) : new Date(le.at).toLocaleString('th-TH') + ' · ' + le.cells + ' ช่อง'}</p>` : ''}
+    <div id="x_rep"></div>
+    </div>
+  <div class="card"><h2>ตั้งค่ารายวิชา</h2>
+    <label>ชื่อวิชา</label><input id="s_course" style="width:100%" value="${esc(st.course)}">
+    <div class="row"><div><label>น้ำหนักระหว่างภาค (หน่วย 1–6; ชีท = 70, ปลายภาค 20, คุณลักษณะ 10)</label><input id="s_wc" type="number" value="${st.weight_collect}"></div><div><label>ปลายภาค</label><input id="s_wf" type="number" value="${st.weight_final}"></div><div><label>คุณลักษณะ</label><input id="s_wa" type="number" value="${st.weight_affective}"></div><div><label>บูรณาการ</label><input id="s_wi" type="number" value="${st.weight_integrated}"></div></div>
+    <label>เกณฑ์เกรด 4 / 3.5 / 3 / 2.5 / 2 / 1.5 / 1 (คั่นด้วย ,)</label><input id="s_cuts" style="width:100%" value="${esc(st.grade_cuts)}">
+    <div class="row" style="margin-top:8px"><button class="b pri" id="s_save">บันทึก</button></div></div>`;
+  const rep = r => { $('#x_rep').innerHTML = `<table><tr><th>งาน</th><th>ไปที่คอลัมน์</th></tr>${r.mapping.map(m => `<tr><td>${esc(m.title)}</td><td>${esc(m.to)}</td></tr>`).join('')}</table>` +
+    (r.warnings.length ? `<p class="bad">${r.warnings.map(esc).join('<br>')}</p>` : '') +
+    (r.unmatched.length ? `<p class="bad">ไม่พบในชีท (เลขประจำตัวไม่ตรง) — ข้าม: ${r.unmatched.map(esc).join(', ')}</p>` : '') +
+    `<p class="mute">${r.cells} ช่อง${r.matchedAgainstSheet ? '' : ' (ยังไม่ได้เทียบกับชีทจริง — ตำแหน่งแถวเป็นการสมมติ)'}</p>`; };
+  $('#x_dry').onclick = async () => { try { rep(await api('POST', '/api/export', { dry: true })); } catch (er) { toast(er.message); } };
+  $('#x_go').onclick = async e => { e.target.disabled = true; try { const r = await api('POST', '/api/export', {}); S.cfg.lastExport = r; toast('ส่งออกสำเร็จ'); render(); rep(r); } catch (er) { toast(er.message); e.target.disabled = false; } };
+  $('#s_save').onclick = async () => { await api('PUT', '/api/settings', { course: $('#s_course').value, weight_collect: $('#s_wc').value, weight_final: $('#s_wf').value, weight_affective: $('#s_wa').value, weight_integrated: $('#s_wi').value, grade_cuts: $('#s_cuts').value }); await loadAll(); toast('บันทึกแล้ว'); };
+}
+
+if (token) api('GET', '/api/config').then(start).catch(() => {});
+else fetch('/api/auth-mode').then(r => r.json()).then(m => { if (m.noPin) login(); }).catch(() => {});
+</script>
+</body>
+</html>

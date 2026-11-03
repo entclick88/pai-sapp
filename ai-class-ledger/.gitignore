@@ -1,0 +1,5 @@
+data/
+*.json
+!package.json
+data-demo/
+.env

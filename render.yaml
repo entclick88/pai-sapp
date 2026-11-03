@@ -17,3 +17,31 @@ services:
         value: 3000
       - key: DATABASE_PATH
         value: /var/data/content.db
+
+  - type: web
+    name: ai-class-ledger
+    env: node
+    rootDir: ai-class-ledger
+    plan: starter
+    buildCommand: echo "no dependencies"
+    startCommand: npm start
+    healthCheckPath: /health
+    disk:
+      name: ai-class-ledger-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 24
+      - key: DATA_DIR
+        value: /var/data
+      - key: TEACHER_PIN
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GOOGLE_SA_JSON
+        sync: false
+      - key: AUTO_EXPORT
+        value: 1

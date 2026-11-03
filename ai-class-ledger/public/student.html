@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Class Ledger — นักเรียน</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1c2230; --mute:#667085; --line:#e4e7ec; --brand:#4f46e5; --ok:#12805c; --bad:#b42318; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#12151c; --card:#1b1f29; --ink:#e8eaf0; --mute:#98a2b3; --line:#2d3340; --brand:#818cf8; --ok:#4ade80; --bad:#f87171; } }
+  * { box-sizing: border-box; } body { margin:0; font:15px/1.5 system-ui,"Noto Sans Thai",sans-serif; background:var(--bg); color:var(--ink); }
+  main { max-width:640px; margin:auto; padding:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:14px; }
+  h1 { font-size:18px; margin:4px 0 12px; } h2 { font-size:15px; margin:0 0 8px; }
+  input, textarea, select, button { font:inherit; color:inherit; background:var(--card); border:1px solid var(--line); border-radius:6px; padding:8px 10px; width:100%; }
+  textarea { min-height:80px; } label { display:block; font-size:13px; color:var(--mute); margin:10px 0 2px; }
+  button.pri { background:var(--brand); border-color:var(--brand); color:#fff; margin-top:10px; cursor:pointer; }
+  .mute { color:var(--mute); font-size:13px; } .bad { color:var(--bad); } .ok { color:var(--ok); }
+  .big { font-size:28px; font-weight:700; } .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; text-align:center; }
+  table { width:100%; border-collapse:collapse; } td { padding:5px 4px; border-bottom:1px solid var(--line); } td.r { text-align:right; white-space:nowrap; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<main>
+  <div id="login" class="card"><h1>เข้าสู่ระบบนักเรียน</h1><label>รหัสนักเรียน (ครูแจกให้)</label>
+    <input id="code" autocomplete="off" autocapitalize="characters" maxlength="8"><button class="pri" id="go">เข้าสู่ระบบ</button><p id="err" class="bad"></p></div>
+  <div id="me" class="hidden"></div>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const CAT = { collect: 'ระหว่างภาค', final: 'สอบปลายภาค', affective: 'คุณลักษณะ', integrated: 'บูรณาการ' };
+let code = new URLSearchParams(location.search).get('code') || localStorage.getItem('code') || '', data = null; // ?code=XXXX เข้าได้โดยไม่ต้องพิมพ์
+
+async function post(url, body) {
+  const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const j = await r.json(); if (!r.ok) throw new Error(j.error); return j;
+}
+async function load() {
+  try { data = await post('/api/student/me', { code }); localStorage.setItem('code', code); $('#login').classList.add('hidden'); render(); }
+  catch (e) { $('#err').textContent = e.message; localStorage.removeItem('code'); $('#login').classList.remove('hidden'); $('#me').classList.add('hidden'); }
+}
+$('#go').onclick = () => { code = $('#code').value.trim().toUpperCase(); load(); };
+$('#code').onkeydown = e => e.key === 'Enter' && $('#go').click();
+
+function render() {
+  const d = data, a = d.attendance;
+  const openA = d.assessments.filter(x => x.open);
+  $('#me').classList.remove('hidden');
+  $('#me').innerHTML = `
+  <h1>${esc(d.name)} <span class="mute">เลขที่ ${d.no ?? '-'}</span></h1><p class="mute">${esc(d.course)} · <a href="#" id="out">ออก</a></p>
+  <div class="card grid"><div><div class="big">${d.total}</div><div class="mute">คะแนนรวมถึงตอนนี้</div></div>
+    <div><div class="big">${d.grade ?? '-'}</div><div class="mute">เกรดคาดการณ์</div></div>
+    <div><div class="big">${a.pct}%</div><div class="mute">เข้าเรียน (มา ${a.present} สาย ${a.late} ขาด ${a.absent} ลา ${a.leave})</div></div></div>
+  <div class="card"><h2>คะแนนของฉัน</h2><table>${d.assessments.map(x => `<tr><td>${esc(x.title)}<div class="mute">${CAT[x.category]}${x.note ? ' · ' + esc(x.note) : ''}</div></td><td class="r">${x.score ?? '—'} / ${x.max}</td></tr>`).join('') || '<tr><td class="mute">ยังไม่มีงาน</td></tr>'}</table></div>
+  ${openA.length ? `<div class="card"><h2>ส่งงาน</h2><label>งาน</label><select id="sub_a">${openA.map(x => `<option value="${x.id}">${esc(x.title)}</option>`).join('')}</select>
+    <label>คำตอบ / วิธีทำ / เหตุผล</label><textarea id="sub_t" style="min-height:140px"></textarea><button class="pri" id="sub_go">ส่งงาน</button><p id="sub_m"></p></div>` : ''}
+  <div class="card"><h2>บันทึกการใช้ AI ในชั่วโมงนี้</h2><p class="mute">จดไว้ทุกครั้งที่ใช้ AI — ครูดูกระบวนการคิดและการตรวจสอบของเธอ ไม่ใช่แค่คำตอบสุดท้าย</p>
+    <label>ชั่วโมง</label><select id="l_h">${d.hours.slice().reverse().map(h => `<option value="${h.id}">ชม.${h.seq} ${esc(h.topic)}</option>`).join('')}</select>
+    <label>เครื่องมือ AI</label><input id="l_tool" placeholder="เช่น Claude, ChatGPT, Gemini">
+    <label>Prompt ที่ถาม</label><textarea id="l_p"></textarea>
+    <label>AI ตอบว่า (สรุปสั้นๆ)</label><textarea id="l_o"></textarea>
+    <label>ฉันตรวจสอบคำตอบอย่างไร (คิดเอง / พิสูจน์ซ้ำ / เทียบแหล่งอื่น)</label><textarea id="l_v"></textarea>
+    <label>สิ่งที่ AI ผิดหรือไม่ชัด / สิ่งที่ฉันเรียนรู้</label><textarea id="l_r"></textarea>
+    <button class="pri" id="l_go">บันทึก</button><p id="l_m"></p>
+    ${d.logs.length ? `<h2 style="margin-top:14px">ที่เคยบันทึก (${d.logs.length})</h2>${d.logs.map(l => `<div class="mute" style="border-top:1px solid var(--line);padding:4px 0">${new Date(l.created_at).toLocaleString('th-TH')} · ${esc(l.tool)} — ${esc(l.prompt.slice(0, 80))}</div>`).join('')}` : ''}</div>`;
+  $('#out').onclick = e => { e.preventDefault(); localStorage.removeItem('code'); location.reload(); };
+  if ($('#sub_go')) $('#sub_go').onclick = async () => {
+    try { await post('/api/student/submit', { code, assessment_id: +$('#sub_a').value, answer: $('#sub_t').value }); $('#sub_t').value = ''; $('#sub_m').innerHTML = '<span class="ok">ส่งแล้ว รอครูตรวจ</span>'; }
+    catch (e) { $('#sub_m').innerHTML = `<span class="bad">${esc(e.message)}</span>`; }
+  };
+  $('#l_go').onclick = async () => {
+    try {
+      await post('/api/student/log', { code, hour_id: +$('#l_h').value, tool: $('#l_tool').value, prompt: $('#l_p').value, output: $('#l_o').value, verified: $('#l_v').value, reflection: $('#l_r').value });
+      await load();
+      $('#l_m').innerHTML = '<span class="ok">บันทึกแล้ว</span>';
+    } catch (e) { $('#l_m').innerHTML = `<span class="bad">${esc(e.message)}</span>`; }
+  };
+}
+// คะแนนอัปเดตเอง: ดึงใหม่ทุก 10 วินาที ถ้าไม่ได้กำลังพิมพ์
+setInterval(() => { if (data && !['TEXTAREA', 'INPUT', 'SELECT'].includes(document.activeElement.tagName)) load(); }, 10000);
+if (code) load();
+</script>
+</body>
+</html>
