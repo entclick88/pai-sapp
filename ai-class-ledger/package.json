@@ -3,6 +3,15 @@
   "version": "1.0.0",
   "description": "ระบบจัดการเรียนการสอนรายชั่วโมง เน้น AI พร้อมบันทึกคะแนนเรียลไทม์และ export ไป Google Sheet (ค30202)",
   "type": "commonjs",
-  "scripts": { "start": "node --no-warnings server.js", "test": "node --no-warnings test.js" },
-  "engines": { "node": ">=22.13" }
+  "scripts": {
+    "start": "node --no-warnings server.js",
+    "test": "node --no-warnings test.js",
+    "seed": "node seed-demo.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.15.15"
+  }
 }

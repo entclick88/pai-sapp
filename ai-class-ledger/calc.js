@@ -15,14 +15,14 @@ function gradeOf(total, cuts) {
 }
 
 // สรุปคะแนนต่อนักเรียน: แต่ละหมวด = (คะแนนที่ได้ / เต็ม) × น้ำหนัก (นับเฉพาะงานที่มีคะแนนแล้ว)
-function summary() {
-  const st = settings();
+async function summary() {
+  const st = await settings();
   const w = { collect: +st.weight_collect, final: +st.weight_final, affective: +st.weight_affective, integrated: +st.weight_integrated };
-  const students = all('SELECT * FROM students ORDER BY no, id');
-  const assessments = all('SELECT * FROM assessments ORDER BY id');
-  const scores = all('SELECT * FROM scores');
-  const att = all('SELECT * FROM attendance');
-  const hours = all('SELECT id FROM hours').length;
+  const students = await all('SELECT * FROM students ORDER BY no, id');
+  const assessments = await all('SELECT * FROM assessments ORDER BY id');
+  const scores = await all('SELECT * FROM scores');
+  const att = await all('SELECT * FROM attendance');
+  const hours = (await all('SELECT id FROM hours')).length;
   const by = new Map();
   for (const s of scores) by.set(s.student_id + ':' + s.assessment_id, s);
   return students.map(stu => {

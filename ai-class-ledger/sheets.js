@@ -140,28 +140,28 @@ function plan({ state, assessments, scores, students, hours, att, traits, weight
   return { data, mapping, warnings, unmatched: [...unmatched], hasState };
 }
 
-function load() {
-  const st = settings();
+async function load() {
+  const st = await settings();
   return {
-    students: all('SELECT * FROM students ORDER BY no, id'),
-    assessments: all('SELECT * FROM assessments ORDER BY id'),
-    scores: all('SELECT * FROM scores'),
-    hours: all('SELECT * FROM hours ORDER BY seq'),
-    att: new Map(all('SELECT * FROM attendance').map(a => [a.hour_id + ':' + a.student_id, a.status])),
-    traits: new Map(all('SELECT * FROM traits').map(t => [t.student_id + ':' + t.trait, t.level])),
+    students: await all('SELECT * FROM students ORDER BY no, id'),
+    assessments: await all('SELECT * FROM assessments ORDER BY id'),
+    scores: await all('SELECT * FROM scores'),
+    hours: await all('SELECT * FROM hours ORDER BY seq'),
+    att: new Map((await all('SELECT * FROM attendance')).map(a => [a.hour_id + ':' + a.student_id, a.status])),
+    traits: new Map((await all('SELECT * FROM traits')).map(t => [t.student_id + ':' + t.trait, t.level])),
     weights: { final: +st.weight_final, affective: +st.weight_affective, integrated: +st.weight_integrated },
   };
 }
 
-function logRows() {
-  const logs = all(`SELECT l.*, s.name, s.no, h.seq FROM ai_logs l JOIN students s ON s.id=l.student_id
+async function logRows() {
+  const logs = await all(`SELECT l.*, s.name, s.no, h.seq FROM ai_logs l JOIN students s ON s.id=l.student_id
     LEFT JOIN hours h ON h.id=l.hour_id ORDER BY l.id`);
   return [['เวลา', 'เลขที่', 'ชื่อ-สกุล', 'ชม.', 'เครื่องมือ', 'Prompt', 'ผลที่ได้', 'วิธีตรวจสอบ', 'สะท้อนคิด'],
     ...logs.map(l => [l.created_at, l.no, l.name, l.seq ?? '', l.tool, l.prompt, l.output, l.verified, l.reflection])];
 }
 
 async function exportAll({ dry = false } = {}) {
-  const d = load();
+  const d = await load();
   const state = ready() ? await readState() : null;
   const p = plan({ ...d, state });
   const summary = { mapping: p.mapping, warnings: p.warnings, unmatched: p.unmatched, cells: p.data.length, matchedAgainstSheet: p.hasState };
@@ -172,7 +172,7 @@ async function exportAll({ dry = false } = {}) {
   if (!meta.sheets.some(s => s.properties.title === LOG_TAB))
     await g(':batchUpdate', { method: 'POST', body: JSON.stringify({ requests: [{ addSheet: { properties: { title: LOG_TAB } } }] }) });
   await g('/values:batchClear', { method: 'POST', body: JSON.stringify({ ranges: [q(LOG_TAB)] }) });
-  const data = [...p.data, { range: `${q(LOG_TAB)}!A1`, values: logRows() }];
+  const data = [...p.data, { range: `${q(LOG_TAB)}!A1`, values: await logRows() }];
   for (let i = 0; i < data.length; i += 500)
     await g('/values:batchUpdate', { method: 'POST', body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: data.slice(i, i + 500) }) });
   return { ok: true, at: new Date().toISOString(), ...summary };

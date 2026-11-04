@@ -98,22 +98,32 @@ async function start() {
   await loadAll(); renderNav(); render(); connect();
 }
 
-let es, refetchT;
-function connect() {
-  es = new EventSource('/api/events?t=' + token);
-  es.onopen = () => { $('#live').classList.add('on'); $('#live span').textContent = 'เรียลไทม์'; };
-  es.onerror = () => { $('#live').classList.remove('on'); $('#live span').textContent = 'ขาดการเชื่อมต่อ (กำลังลองใหม่)'; };
-  es.onmessage = ev => {
-    const m = JSON.parse(ev.data);
-    if (m.type === 'score') {
-      // อัปเดตช่องที่เปลี่ยนโดยไม่ต้องวาดทั้งตาราง และไม่ทับช่องที่กำลังพิมพ์
-      S.scores[m.student_id + ':' + m.assessment_id] = { ...(S.scores[m.student_id + ':' + m.assessment_id] || {}), score: m.score };
-      const inp = document.querySelector(`input.sc[data-s="${m.student_id}"][data-a="${m.assessment_id}"]`);
-      if (inp && document.activeElement !== inp) { inp.value = m.score ?? ''; inp.classList.add('flash'); setTimeout(() => inp.classList.remove('flash'), 800); }
-      clearTimeout(refetchT); refetchT = setTimeout(refreshSummary, 300);
-    } else if (m.type === 'export') { S.cfg.lastExport = m; if (S.tab === 'export') render(); toast('ส่งออกไป Google Sheet แล้ว'); }
-    else { clearTimeout(refetchT); refetchT = setTimeout(async () => { if (!document.activeElement || !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) { await loadAll(); render(); } else refreshSummary(); }, 250); }
+let refetchT, exportT, lastEvent = 0, pollFails = 0;
+// เรียลไทม์แบบถามเป็นระยะ (ทำงานได้ทั้งบนเซิร์ฟเวอร์ปกติและ serverless): ทุก 2 วินาทีขอเหตุการณ์ใหม่
+async function connect() {
+  try { lastEvent = (await api('GET', '/api/events?since=0')).last; } catch { }
+  const tick = async () => {
+    try {
+      if (document.hidden) return;
+      const r = await api('GET', '/api/events?since=' + Math.max(lastEvent, 1));
+      lastEvent = r.last; pollFails = 0;
+      $('#live').classList.add('on'); $('#live span').textContent = 'เรียลไทม์';
+      r.events.forEach(onEvent);
+      if (r.events.length && S.cfg.autoExport) { clearTimeout(exportT); exportT = setTimeout(() => api('POST', '/api/export', {}).catch(() => {}), 15000); }
+    } catch (e) { if (++pollFails > 1) { $('#live').classList.remove('on'); $('#live span').textContent = 'ขาดการเชื่อมต่อ (กำลังลองใหม่)'; } }
   };
+  setInterval(tick, 2000);
+  document.addEventListener('visibilitychange', () => !document.hidden && tick());
+}
+function onEvent(m) {
+  if (m.type === 'score') {
+    // อัปเดตช่องที่เปลี่ยนโดยไม่ต้องวาดทั้งตาราง และไม่ทับช่องที่กำลังพิมพ์
+    S.scores[m.student_id + ':' + m.assessment_id] = { ...(S.scores[m.student_id + ':' + m.assessment_id] || {}), score: m.score };
+    const inp = document.querySelector(`input.sc[data-s="${m.student_id}"][data-a="${m.assessment_id}"]`);
+    if (inp && document.activeElement !== inp) { inp.value = m.score ?? ''; inp.classList.add('flash'); setTimeout(() => inp.classList.remove('flash'), 800); }
+    clearTimeout(refetchT); refetchT = setTimeout(refreshSummary, 300);
+  } else if (m.type === 'export') { if (S.tab === 'export') loadAll().then(render); toast('ส่งออกไป Google Sheet แล้ว'); }
+  else { clearTimeout(refetchT); refetchT = setTimeout(async () => { if (!document.activeElement || !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) { await loadAll(); render(); } else refreshSummary(); }, 250); }
 }
 async function refreshSummary() {
   S.summary = await api('GET', '/api/summary');

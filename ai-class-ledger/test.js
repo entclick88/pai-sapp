@@ -2,6 +2,7 @@
 const os = require('os'), path = require('path'), fs = require('fs'), assert = require('assert');
 process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'ledger-'));
 process.env.TEACHER_PIN = 'pin';
+delete process.env.TURSO_DATABASE_URL;
 process.env.ANTHROPIC_API_KEY = ''; process.env.GOOGLE_SA_FILE = ''; process.env.GOOGLE_SA_JSON = ''; // ทดสอบกรณีไม่มีคีย์ แม้เครื่องมี .env
 const { server } = require('./server');
 
@@ -19,13 +20,11 @@ const { server } = require('./server');
   assert.equal((await call('POST', '/api/login', { pin: 'x' })).status, 401);
   tok = (await ok('POST', '/api/login', { pin: 'pin' })).token;
 
-  // SSE ต้องได้เหตุการณ์คะแนนแบบเรียลไทม์
-  const events = [];
-  const ctl = new AbortController();
-  fetch(`${base}/api/events?t=${tok}`, { signal: ctl.signal }).then(async r => {
-    const rd = r.body.getReader(); const dec = new TextDecoder();
-    for (;;) { const { value, done } = await rd.read(); if (done) break; events.push(dec.decode(value)); }
-  }).catch(() => {});
+  // เรียลไทม์: เริ่มติดตามจากเหตุการณ์ล่าสุด แล้วต้องได้เหตุการณ์คะแนนที่เกิดหลังจากนั้น
+  const start = (await ok('GET', '/api/events?since=0')).last;
+  assert.equal((await call('GET', '/api/events?since=0')).status, 200);
+  const bad = await fetch(base + '/api/events?since=0', { headers: { 'x-token': 'x.y' } });
+  assert.equal(bad.status, 401, 'โทเค็นปลอมต้องถูกปฏิเสธ');
 
   await ok('POST', '/api/students/bulk', { text: '1,1001,สมชาย ใจดี\n2,1002,สมหญิง เรียนดี\nbad line' });
   const sts = await ok('GET', '/api/students'); assert.equal(sts.length, 2);
@@ -91,9 +90,14 @@ const { server } = require('./server');
   assert.equal(at("'Desirable Characteristics'!L12"), 2, 'มีวินัย → L');
   assert.deepEqual(p.unmatched, ['2 ข (9999)'], 'เลขประจำตัวที่ไม่มีในชีทต้องถูกรายงานและข้าม');
 
-  await new Promise(r => setTimeout(r, 100));
-  assert(events.join('').includes('"type":"score"'), 'ไม่ได้รับเหตุการณ์เรียลไทม์');
-  ctl.abort(); server.close(); server.closeAllConnections?.();
+  const ev = await ok('GET', '/api/events?since=' + Math.max(start, 1));
+  assert(ev.events.some(e => e.type === 'score' && e.score === 8), 'ไม่ได้รับเหตุการณ์เรียลไทม์');
+  const again = await ok('GET', '/api/events?since=' + ev.last);
+  assert.equal(again.events.length, 0, 'ไม่ควรได้เหตุการณ์ซ้ำ');
+  // ลบนักเรียนต้องลบข้อมูลที่ผูกอยู่ด้วย (ไม่พึ่ง foreign key)
+  await ok('DELETE', `/api/students/${sts[1].id}`);
+  assert.equal((await ok('GET', '/api/attendance')).filter(a => a.student_id === sts[1].id).length, 0);
+  server.close(); server.closeAllConnections?.();
   console.log('ผ่านทั้งหมด ✔');
   process.exit(0);
 })().catch(e => { console.error('ล้มเหลว:', e.message); process.exit(1); });
