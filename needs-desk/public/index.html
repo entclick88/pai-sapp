@@ -1,0 +1,21 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ส่งความต้องการ</title>
+<style>
+body{font-family:system-ui,"Noto Sans Thai",sans-serif;background:#f4f6fa;margin:0;display:grid;place-items:center;min-height:100vh;padding:16px;box-sizing:border-box}
+form{background:#fff;border-radius:16px;padding:24px;max-width:460px;width:100%;box-shadow:0 4px 24px #0001}
+h1{margin:0 0 4px;font-size:1.3rem}p{color:#667;margin:0 0 16px;font-size:.9rem}
+input,textarea{width:100%;box-sizing:border-box;padding:12px;border:1px solid #ccd;border-radius:10px;font:inherit;margin-bottom:12px}
+textarea{min-height:130px;resize:vertical}
+button{width:100%;padding:13px;border:0;border-radius:10px;background:#2563eb;color:#fff;font:inherit;font-weight:600;cursor:pointer}
+button:disabled{opacity:.6}#msg{margin-top:12px;text-align:center;font-size:.9rem}
+</style></head><body>
+<form id="f"><h1>📝 แจ้งความต้องการ</h1><p>บอกสิ่งที่ต้องการ ทีมงานจะรวบรวมและดำเนินการ</p>
+<input id="name" placeholder="ชื่อ (ไม่บังคับ)" maxlength="80">
+<textarea id="text" placeholder="พิมพ์ความต้องการของคุณ…" required maxlength="1000"></textarea>
+<button>ส่งความต้องการ</button><div id="msg"></div></form>
+<script>
+f.onsubmit=async e=>{e.preventDefault();const b=f.querySelector('button');b.disabled=true;
+const r=await fetch('/api/needs',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:name.value,text:text.value})});
+msg.textContent=r.ok?'✅ ส่งเรียบร้อย ขอบคุณครับ/ค่ะ':'❌ ส่งไม่สำเร็จ ลองใหม่อีกครั้ง';msg.style.color=r.ok?'#16a34a':'#dc2626';
+if(r.ok)text.value='';b.disabled=false}
+</script></body></html>

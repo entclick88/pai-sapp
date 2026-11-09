@@ -1,0 +1,42 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard ความต้องการ</title>
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--tx:#1b2333;--mut:#667;--bd:#e3e7ef}
+@media(prefers-color-scheme:dark){:root{--bg:#10141c;--card:#1a2030;--tx:#e8ecf4;--mut:#9aa4b8;--bd:#2a3248}}
+body{font-family:system-ui,"Noto Sans Thai",sans-serif;background:var(--bg);color:var(--tx);margin:0;padding:16px}
+.wrap{max-width:1000px;margin:auto}header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
+h1{margin:0;font-size:1.4rem}.stats{display:flex;gap:8px}.stat{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:8px 14px;text-align:center}
+.stat b{display:block;font-size:1.4rem}.stat span{font-size:.75rem;color:var(--mut)}
+.ctl{font-size:.85rem;color:var(--mut)}input[type=range]{vertical-align:middle}
+.grp{background:var(--card);border:1px solid var(--bd);border-radius:14px;margin-bottom:12px;overflow:hidden}
+.gh{display:flex;gap:10px;align-items:center;padding:14px 16px;cursor:pointer}.gh h2{margin:0;font-size:1rem;flex:1}
+.badge{background:#2563eb;color:#fff;border-radius:99px;padding:2px 10px;font-size:.8rem;font-weight:600}.badge.z{background:#16a34a}
+.items{border-top:1px solid var(--bd);display:none}.grp.o .items{display:block}
+.it{display:flex;gap:10px;align-items:flex-start;padding:10px 16px;border-bottom:1px solid var(--bd)}.it:last-child{border:0}
+.it .t{flex:1}.it small{color:var(--mut)}.it.done .t{opacity:.5;text-decoration:line-through}
+select,button{font:inherit;font-size:.8rem;border:1px solid var(--bd);border-radius:6px;background:var(--card);color:var(--tx);padding:3px 6px}
+.empty{text-align:center;color:var(--mut);padding:40px}
+</style></head><body><div class="wrap">
+<header><h1>📊 ความต้องการที่รวบรวมแล้ว</h1>
+<div class="stats"><div class="stat"><b id="sg">0</b><span>กลุ่ม</span></div><div class="stat"><b id="st">0</b><span>ทั้งหมด</span></div><div class="stat"><b id="so">0</b><span>ค้างอยู่</span></div></div></header>
+<div class="ctl">ความละเอียดการจัดกลุ่ม: <small>รวมกว้าง</small> <input id="th" type="range" min="0.15" max="0.6" step="0.01" value="0.28"> <small>แยกละเอียด</small>
+ · <a href="/" target="_blank">ลิงก์ส่งความต้องการ</a></div><br>
+<div id="list"></div></div>
+<script>
+const pin=new URLSearchParams(location.search).get('pin')||'';const H={'x-pin':pin,'content-type':'application/json'};
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const open=new Set();let busy=false;
+async function load(){if(busy)return;const r=await fetch('/api/groups?t='+th.value,{headers:H});
+if(r.status==401){list.innerHTML='<div class="empty">ต้องใช้ PIN: เติม ?pin=… ท้าย URL</div>';return}
+const d=await r.json();sg.textContent=d.groups.length;st.textContent=d.total;so.textContent=d.open;
+list.innerHTML=d.groups.length?d.groups.map(g=>`<div class="grp ${open.has(g.label)?'o':''}" data-k="${esc(g.label)}">
+<div class="gh"><h2>${esc(g.label)}</h2><span class="badge ${g.open?'':'z'}">${g.open?g.open+' ค้าง':'เสร็จ'} / ${g.count}</span></div>
+<div class="items">${g.items.map(n=>`<div class="it ${n.status=='done'?'done':''}"><div class="t">${esc(n.text)}<br><small>${esc(n.name)} · ${new Date(n.ts).toLocaleString('th-TH')}</small></div>
+<select data-id="${n.id}">${[['new','ใหม่'],['doing','กำลังทำ'],['done','เสร็จ']].map(([v,l])=>`<option value="${v}" ${n.status==v?'selected':''}>${l}</option>`).join('')}</select>
+<button data-del="${n.id}">ลบ</button></div>`).join('')}</div></div>`).join(''):'<div class="empty">ยังไม่มีความต้องการ</div>'}
+list.onclick=e=>{const h=e.target.closest('.gh');if(h){const g=h.parentNode;g.classList.toggle('o');g.classList.contains('o')?open.add(g.dataset.k):open.delete(g.dataset.k)}
+const d=e.target.dataset.del;if(d&&confirm('ลบรายการนี้?'))fetch('/api/needs/'+d,{method:'DELETE',headers:H}).then(load)};
+list.onchange=e=>{if(e.target.dataset.id)fetch('/api/needs/'+e.target.dataset.id,{method:'PATCH',headers:H,body:JSON.stringify({status:e.target.value})}).then(load)};
+list.onfocusin=()=>busy=true;list.onfocusout=()=>busy=false;
+th.onchange=load;load();setInterval(load,5000);
+</script></body></html>

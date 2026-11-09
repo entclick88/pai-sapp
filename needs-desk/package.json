@@ -1,0 +1,1 @@
+{ "name": "needs-desk", "private": true, "type": "module", "scripts": { "start": "node server.js" } }
