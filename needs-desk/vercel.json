@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "outputDirectory": "public",
+  "rewrites": [
+    { "source": "/dashboard", "destination": "/dashboard.html" }
+  ],
+  "functions": { "api/[...path].js": { "maxDuration": 30, "includeFiles": "public/**" } }
+}
