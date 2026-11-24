@@ -8,12 +8,11 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 
-const { db, dbAsync, uploadsDir } = require('./config/database');
+const { db, dbAsync } = require('./config/database');
 const authRoutes = require('./routes/auth');
 const templateRoutes = require('./routes/template');
 const emailSettingsRoutes = require('./routes/emailSettings');
 const generatorRoutes = require('./routes/generator');
-const restaurantRoutes = require('./routes/restaurant');
 const { startContentGenerationJob, testEmailConnection } = require('./services/emailer');
 const { startContentGenerationJob: startScheduledJob } = require('./jobs/contentGenerator');
 
@@ -24,8 +23,12 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use('/api/carwash', require('./routes/carwash'));
+app.get('/', (req, res) => res.redirect('/carwash/'));
+app.get(['/restaurant', '/order.html', '/qr-scanner.html', '/restaurant-home.html', '/order-status.html'], (req, res) => res.redirect('/carwash/'));
+app.get(['/admin-dashboard.html', '/admin-new-order.html', '/admin-menu.html', '/admin-tables.html', '/admin-expenses.html'], (req, res) => res.redirect('/carwash/admin.html'));
+app.get('/owner-dashboard.html', (req, res) => res.redirect('/carwash/owner.html'));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(uploadsDir));
 
 // Session configuration
 app.use(session({
@@ -124,7 +127,6 @@ app.use('/auth', authRoutes);
 app.use('/api', templateRoutes);
 app.use('/api', emailSettingsRoutes);
 app.use('/api', generatorRoutes);
-app.use('/api', restaurantRoutes);
 
 // Content Generator page
 app.get('/generator', (req, res) => {
