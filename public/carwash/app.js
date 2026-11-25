@@ -255,7 +255,6 @@ async function workspace() {
     for (const key of ['shopName', 'promptpayId']) $('#settings-form').elements[key].value = settings[key] || (key === 'shopName' ? 'ร้านล้างรถ' : '');
     $('#qr').innerHTML = '';
     if (window.QRCode) new QRCode($('#qr'), { text: location.origin + '/carwash/', width: 180, height: 180 });
-    $('#booking-link').href = location.origin + '/carwash/'; $('#booking-link').textContent = location.origin + '/carwash/';
     activatePanel('queue', false);
   } else { await analytics(); activatePanel('report', false); }
 }
