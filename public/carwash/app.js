@@ -295,7 +295,11 @@ async function init() {
         await post('/admin/expenses', Object.fromEntries(new FormData(event.target))); event.target.elements.description.value = ''; event.target.elements.amount.value = ''; await analytics(); message('บันทึกรายจ่ายแล้ว');
       }); };
     }
-    if (sessionStorage.getItem('carwash_admin')) await workspace();
+    const access = await api('/access');
+    if (!access.requiresLogin) {
+      $('#logout').hidden = true;
+      await workspace();
+    } else if (sessionStorage.getItem('carwash_admin')) await workspace();
   } catch (e) { message(e.message); }
 }
 init();

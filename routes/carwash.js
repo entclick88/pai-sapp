@@ -29,6 +29,8 @@ if (!pin) {
 const sessions = new Map();
 const attempts = new Map();
 router.use(async (req, res, next) => { try { await ready; next(); } catch(e) { next(e); } });
+const requiresLogin = process.env.CARWASH_REQUIRE_LOGIN === 'true';
+router.get('/access', (req, res) => res.json({ requiresLogin }));
 router.post('/login', (req, res) => {
   const key = req.ip;
   const rate = attempts.get(key) || { n: 0, until: Date.now() + 600000 };
@@ -44,6 +46,7 @@ router.post('/login', (req, res) => {
   res.json({ token });
 });
 const auth = (req, res, next) => {
+  if (!requiresLogin) return next();
   const token = (req.headers.authorization || '').replace(/^Bearer /, '');
   if ((sessions.get(token) || 0) < Date.now()) return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบพนักงาน' });
   next();
